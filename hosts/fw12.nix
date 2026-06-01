@@ -2,7 +2,12 @@
 
 {
   # Pull in the hardware scan NixOS generated at install time
-  imports = [ ./fw12-hardware-configuration.nix ../modules/kanata.nix ../modules/ssh.nix ];
+  imports = [
+    ./fw12-hardware-configuration.nix
+    ../modules/kanata.nix
+    ../modules/ssh.nix
+    ../modules/tailscale.nix
+  ];
 
   networking.hostName = "fw12";  # whatever you want
 

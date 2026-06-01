@@ -12,15 +12,17 @@
       url = "github:rileytuttle/Configs";  # or wherever your dotfiles repo is
       flake = false;  # it's not a flake, just a source repo
     };
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
   };
 
-  outputs = { self, nixpkgs, home-manager, dotfiles, ... }: {
+  outputs = { self, nixpkgs, home-manager, dotfiles, nixos-hardware, ... }: {
     nixosConfigurations = {
 
       fw12 = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = { inherit dotfiles; };
         modules = [
+          nixos-hardware.nixosModules."framework-12-13th-gen-intel"
           ./hosts/fw12.nix
           ./modules/common.nix
           home-manager.nixosModules.home-manager
