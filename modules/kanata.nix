@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, dotfiles, ... }:
 
 {
   environment.systemPackages = with pkgs; [
@@ -22,10 +22,6 @@
     SupplementaryGroups = [ "input" "uinput" ];
   };
 
-  environment.etc."kanata/kanata.kbd" = {
-    source = /home/rileytuttle/Configs/dotfiles/kanataconfig.kbd;
-  };
-
   services.kanata = {
     enable = true;
     keyboards = {
@@ -33,7 +29,7 @@
         devices = [
           "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
         ];
-        configFile = "/etc/kanata/kanata.kbd";
+        configFile = "${dotfiles}/dotfiles/kanataconfig.kbd";
       };
     };
   };

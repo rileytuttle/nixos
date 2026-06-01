@@ -4,28 +4,14 @@
   home.username = "rileytuttle";
   home.homeDirectory = "/home/rileytuttle";
 
-  # Shell
-  programs.bash = {
-    enable = true;
-    enableAutosuggestions = true;
-    syntaxHighlighting.enable = true;
-    shellAliases = {
-      ll = "ls -la";
-      #rebuild = "sudo nixos-rebuild switch --flake /etc/nixos#$(hostname)";
-      #update = "sudo nix flake update /etc/nixos";
-    };
-  };
-
   # Git
   programs.git = {
     enable = true;
-    userName = "Riley Tuttle";
-    userEmail = "rileytuttle@gmail.com";
+    settings.user.name = "Riley Tuttle";
   };
 
   # User packages (installed just for your user, not system-wide)
   home.packages = with pkgs; [
-    git
     fzf
     tmux 
     firefox
@@ -46,23 +32,18 @@
   ];
 
   home.file.".config/kak/kakrc".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/kakrc/kakrc";
-  home.file.".tmux.conf".source = /home/rileytuttle/Configs/dotfiles/.tmux.conf;
-  home.file.".gitconfig".source = /home/rileytuttle/Configs/dotfiles/.gitconfig;
+  home.file.".tmux.conf".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/.tmux.conf";
+  home.file.".gitconfig".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/.gitconfig";
 
   programs.bash = {
     enable = true;
 
       # shell aliases
       shellAliases = {
-        ll = "ls -la";
-        la = "ls -A";
-        l = "ls -CF";
-        gs = "git status";
-        gd = "git diff";
-        gc = "git commit";
-        gp = "git push";
-        gl = "git log --oneline";
+        gst = "git status";
         calc = "python3 -i -c \"from math import *; import numpy as np\"";
+        #rebuild = "sudo nixos-rebuild switch --flake /etc/nixos#$(hostname)";
+        #update = "sudo nix flake update /etc/nixos";
       };
 
       # runs in every interactive shell (equivalent of .bashrc additions)
@@ -112,10 +93,6 @@
 
     home.sessionPath = [
       "$HOME/Configs/scripts"
-    ];
-
-    nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-      "spotify"
     ];
 
     programs.fzf = {

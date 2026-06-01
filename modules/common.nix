@@ -32,8 +32,8 @@
 
   # Display server
   services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
+  services.displayManager.gdm.enable = true;
+  services.desktopManager.gnome.enable = true;
 
   # Your user account
   users.users.rileytuttle = {
@@ -45,6 +45,7 @@
   environment.systemPackages = with pkgs; [
     wget
     curl
+    git
   ];
 
   # Allow unfree packages (needed for things like VSCode, nvidia drivers)

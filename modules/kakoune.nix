@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 
 let
-  myKakoune = pkgs.stdenv.mkDerivation {
+  kakoune-rt = pkgs.stdenv.mkDerivation {
     pname = "kakoune";
     version = "HEAD";
     src = pkgs.fetchFromGitHub {
