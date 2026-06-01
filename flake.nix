@@ -28,6 +28,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.users.rileytuttle = import ./home/default.nix;
+            home-manager.extraSpecialArgs = { inherit dotfiles; };
           }
         ];
       };

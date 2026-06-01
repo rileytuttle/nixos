@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, dotfiles, ... }:
 
 {
   home.username = "rileytuttle";
@@ -31,9 +31,9 @@
     discord
   ];
 
-  home.file.".config/kak/kakrc".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/kakrc/kakrc";
-  home.file.".tmux.conf".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/.tmux.conf";
-  home.file.".gitconfig".source = config.lib.file.mkOutOfStoreSymlink "/home/rileytuttle/Configs/dotfiles/.gitconfig";
+  home.file.".config/kak/kakrc".source = "${dotfiles}/dotfiles/kakrc/kakrc";
+  home.file.".tmux.conf".source = "${dotfiles}/.tmux.conf";
+  home.file.".gitconfig".source = "${dotfiles}/.gitconfig";
 
   programs.bash = {
     enable = true;
