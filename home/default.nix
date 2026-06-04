@@ -1,4 +1,4 @@
-{ config, pkgs, dotfiles, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   home.username = "rileytuttle";
@@ -9,6 +9,14 @@
     enable = true;
     settings.user.name = "Riley Tuttle";
   };
+
+  # programs.hyprland = {
+  #   enable = true;
+  #   # set the flake package
+  #   package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+  #   # make sure to also set the portal package, so that they are in sync
+  #   portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
+  # };
 
   # User packages (installed just for your user, not system-wide)
   home.packages = with pkgs; [
@@ -29,11 +37,13 @@
     rpi-imager
     jellyfin-media-player
     discord
+    spotify
+    python3
   ];
 
-  home.file.".config/kak/kakrc".source = "${dotfiles}/dotfiles/kakrc/kakrc";
-  home.file.".tmux.conf".source = "${dotfiles}/.tmux.conf";
-  home.file.".gitconfig".source = "${dotfiles}/.gitconfig";
+  home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles/kakrc/kakrc-hyprland";
+  home.file.".tmux.conf".source = "${inputs.dotfiles}/dotfiles/.tmux.conf";
+  home.file.".gitconfig".source = "${inputs.dotfiles}/dotfiles/.gitconfig";
 
   programs.bash = {
     enable = true;
@@ -99,6 +109,9 @@
       enable = true;
       defaultOptions = [ "--layout=reverse" ];
     };
+
+  home.file.".config/hypr".source = "${inputs.dotfiles}/dotfiles/hypr";
+  home.file.".config/ashell".source = "${inputs.dotfiles}/dotfiles/ashell";
 
   home.stateVersion = "26.05";
 }

@@ -13,14 +13,17 @@
       flake = false;  # it's not a flake, just a source repo
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
+
+    hyprland.url = "github:hyprwm/Hyprland";
+    ashell.url = "github:MalpenZibo/ashell";
   };
 
-  outputs = { self, nixpkgs, home-manager, dotfiles, nixos-hardware, ... }: {
+  outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs: {
     nixosConfigurations = {
 
       fw12 = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-        specialArgs = { inherit dotfiles; };
+        specialArgs = { inherit inputs; };
         modules = [
           nixos-hardware.nixosModules."framework-12-13th-gen-intel"
           ./hosts/fw12.nix
@@ -30,7 +33,7 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             home-manager.users.rileytuttle = import ./home/default.nix;
-            home-manager.extraSpecialArgs = { inherit dotfiles; };
+            home-manager.extraSpecialArgs = { inherit inputs; };
           }
         ];
       };

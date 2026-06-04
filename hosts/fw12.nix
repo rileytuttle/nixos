@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   # Pull in the hardware scan NixOS generated at install time
@@ -7,6 +7,7 @@
     ../modules/kanata.nix
     ../modules/ssh.nix
     ../modules/tailscale.nix
+    ../modules/hyprland.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
@@ -16,11 +17,19 @@
   hardware.enableRedistributableFirmware = true;
 
   # Power management
+  boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
+
+  # Lid/power button behavior
+  services.logind.settings.Login = {
+    HandleLidSwitch = "suspend-then-hibernate";
+    HandleSuspendKey = "suspend-then-hibernate";
+    HandlePowerKey = "suspend-then-hibernate";
+    IdleAction = "suspend-then-hibernate";
+    IdleActionSec = "5min";
+  };
+
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;
-
-  # Suspend on lid close
-  services.logind.settings.Login.HandleLidSwitch = "suspend";
 
   # Better battery life with TLP (alternative to power-profiles-daemon)
   services.tlp.enable = true;
@@ -39,5 +48,10 @@
   environment.systemPackages = with pkgs; [
     powertop
     acpi
+    gnome-power-manager
+  ];
+
+  nixpkgs.config.permittedInsecurePackages = [
+      "electron-39.8.10"
   ];
 }
