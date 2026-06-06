@@ -4,7 +4,7 @@
 
   imports = [
     ./hyprland.nix
-    ./niri.nix
+    # ./niri.nix
   ];
   
   home.username = "rileytuttle";

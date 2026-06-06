@@ -28,9 +28,10 @@
       inputs.hyprland.follows = "hyprland";
     };
     niri = {
-      url = "github:sodiboo/niri-flake";
+      url = "github:niri-wm/niri";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     nix-colors = {
       url = "github:misterio77/nix-colors";
     };
@@ -52,12 +53,6 @@
             home-manager.useUserPackages = true;
             home-manager.users.rileytuttle = import ./home/default.nix;
             home-manager.extraSpecialArgs = { inherit inputs; };
-            home-manager.sharedModules = [
-              inputs.niri.homeModules.niri
-              # vicinae.homeManagerModules.default
-              # noctalia.homeModules.default
-              inputs.nix-colors.homeManagerModules.default
-            ];
           }
         ];
       };
