@@ -5,7 +5,7 @@
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
     home-manager = {
-      url = "github:nix-community/home-manager/release-26.05";
+      url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";  # reuse the same nixpkgs, don't pull a second copy
     };
     dotfiles = {
@@ -14,8 +14,26 @@
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
-    hyprland.url = "github:hyprwm/Hyprland";
+    hyprland = {
+      url = "github:hyprwm/Hyprland";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    hyprland-plugins = {
+      url = "github:hyprwm/hyprland-plugins";
+      inputs.hyprland.follows = "hyprland";
+    };
     ashell.url = "github:MalpenZibo/ashell";
+    hyprspace = {
+      url = "github:KZDKM/Hyprspace";
+      inputs.hyprland.follows = "hyprland";
+    };
+    niri = {
+      url = "github:sodiboo/niri-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-colors = {
+      url = "github:misterio77/nix-colors";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs: {
@@ -34,6 +52,12 @@
             home-manager.useUserPackages = true;
             home-manager.users.rileytuttle = import ./home/default.nix;
             home-manager.extraSpecialArgs = { inherit inputs; };
+            home-manager.sharedModules = [
+              inputs.niri.homeModules.niri
+              # vicinae.homeManagerModules.default
+              # noctalia.homeModules.default
+              inputs.nix-colors.homeManagerModules.default
+            ];
           }
         ];
       };

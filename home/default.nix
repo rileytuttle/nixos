@@ -1,6 +1,12 @@
 { config, pkgs, inputs, ... }:
 
 {
+
+  imports = [
+    ./hyprland.nix
+    ./niri.nix
+  ];
+  
   home.username = "rileytuttle";
   home.homeDirectory = "/home/rileytuttle";
 
@@ -52,8 +58,8 @@
       shellAliases = {
         gst = "git status";
         calc = "python3 -i -c \"from math import *; import numpy as np\"";
-        #rebuild = "sudo nixos-rebuild switch --flake /etc/nixos#$(hostname)";
-        #update = "sudo nix flake update /etc/nixos";
+        rebuild = "sudo nixos-rebuild switch --flake /etc/nixos#$(hostname)";
+        update = "sudo nix flake update /etc/nixos";
       };
 
       # runs in every interactive shell (equivalent of .bashrc additions)
@@ -109,9 +115,6 @@
       enable = true;
       defaultOptions = [ "--layout=reverse" ];
     };
-
-  home.file.".config/hypr".source = "${inputs.dotfiles}/dotfiles/hypr";
-  home.file.".config/ashell".source = "${inputs.dotfiles}/dotfiles/ashell";
 
   home.stateVersion = "26.05";
 }

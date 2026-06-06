@@ -8,6 +8,7 @@
     ../modules/ssh.nix
     ../modules/tailscale.nix
     ../modules/hyprland.nix
+    ../modules/niri.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
@@ -18,6 +19,12 @@
 
   # Power management
   boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
+
+  # Hybrid sleep: suspends to RAM, but hibernates after delay if still sleeping
+  systemd.sleep.settings.Sleep = {
+    HibernateMode = "platform shutdown";
+    HibernateDelaySec = "5m";
+  };
 
   # Lid/power button behavior
   services.logind.settings.Login = {

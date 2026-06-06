@@ -1,5 +1,7 @@
 { config, pkgs, lib, inputs, ... }:
 {
+
+  imports = [ inputs.hyprland.nixosModules.default ];
   
   programs.hyprland = {
     enable = true;
@@ -10,24 +12,7 @@
   };
 
   environment.systemPackages = with pkgs; [
-    kdePackages.dolphin
-    kitty
-    gnome-terminal
-    mako
-    wl-clipboard
-    hyprpolkitagent
-    alsa-utils
-    hyprpaper
-    hyprpwcenter
-    hyprsunset
-    hypridle
-    hyprlock
-    hyprsysteminfo
-    hyprgraphics
-    brightnessctl
-    playerctl
-    inputs.ashell.packages.${pkgs.system}.default
-    hyprlauncher
+    # inputs.iio-hyprland.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   fonts.packages = with pkgs; [
