@@ -1,7 +1,6 @@
 { config, pkgs, inputs, ... }:
 
 {
-
   imports = [
     ./hyprland.nix
     # ./niri.nix
@@ -45,6 +44,7 @@
     discord
     spotify
     python3
+    vlc
   ];
 
   home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles/kakrc/kakrc-hyprland";

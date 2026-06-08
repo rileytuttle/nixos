@@ -7,8 +7,9 @@
     ../modules/kanata.nix
     ../modules/ssh.nix
     ../modules/tailscale.nix
-    ../modules/hyprland.nix
+    # ../modules/hyprland.nix
     ../modules/niri.nix
+    ../modules/kde.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
