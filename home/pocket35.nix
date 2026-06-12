@@ -36,10 +36,10 @@
     # (pkgs.writeShellScriptBin "my-hello" ''
     #   echo "Hello, ${config.home.username}!"
     # '')
-    jellyfin-desktop
     pavucontrol
     ptouch-print
     fzf
+    blueman
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -84,6 +84,7 @@
       shellAliases = {
         gst = "git status";
         calc = "python3 -i -c \"from math import *; import numpy as np\"";
+        hm-switch = "home-manager -f ~/Configs/nixos/home/pocket35.nix switch";
       };
 
       # runs in every interactive shell (equivalent of .bashrc additions)
@@ -138,5 +139,14 @@
   
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
+
+  xfconf.settings = {
+    "xfce4-session" = {
+      "accessibility/OnscreenKeyboard" = false;
+     };
+     "xfsettingsd" = {
+       "accessibility/OnscreenKeyboard" = false;
+     };
+  };
 
 }
