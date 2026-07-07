@@ -10,9 +10,6 @@
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
     auto-optimise-store = true;
-    substituters = ["https://hyprland.cachix.org"];
-    trusted-substituters = ["https://hyprland.cachix.org"];
-    trusted-public-keys = ["hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="];
   };
 
   # Bootloader (both machines use systemd-boot + EFI)
@@ -36,8 +33,8 @@
 
   # Display server
   services.xserver.enable = true;
-  services.displayManager.gdm.enable = true;
-  services.desktopManager.gnome.enable = true;
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
 
   # Your user account
   users.users.rileytuttle = {
@@ -50,7 +47,15 @@
     wget
     curl
     git
+    gnome-terminal
   ];
+
+  fonts.packages = with pkgs; [
+    jetbrains-mono
+    noto-fonts
+    noto-fonts-color-emoji
+  ];
+
 
   # Allow unfree packages (needed for things like VSCode, nvidia drivers)
   nixpkgs.config.allowUnfree = true;

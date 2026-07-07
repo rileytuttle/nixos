@@ -58,6 +58,22 @@
         ];
       };
 
+      elitedesk = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./hosts/elitedesk.nix
+          ./modules/common.nix
+          home-manager.nixosModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.rileytuttle = import ./home/default.nix;
+            home-manager.extraSpecialArgs = { inherit inputs; };
+          }
+        ];
+      };
+
       desktop = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         modules = [
