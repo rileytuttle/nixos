@@ -30,11 +30,11 @@
     slack
     bitwarden-desktop
     rpi-imager
-    jellyfin-media-player
     discord
     spotify
     python3
     vlc
+    iw
   ];
 
   home.file.".tmux.conf".source = "${inputs.dotfiles}/dotfiles/.tmux.conf";

@@ -9,6 +9,9 @@
     ../modules/tailscale.nix
     # ../modules/niri.nix
     ../modules/kde.nix
+    ../modules/transmission.nix
+    ../modules/steam.nix
+    ../modules/nzbget.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
@@ -49,16 +52,22 @@
   services.blueman.enable = true;
 
   # Screen brightness control
-  users.users.rileytuttle.extraGroups = [ "video" ];  # needed for light
+  users.users.rileytuttle.extraGroups = [
+    "video" # needed for light
+    "dialout"
+  ];
 
   # Laptop-only packages
   environment.systemPackages = with pkgs; [
     powertop
     acpi
     gnome-power-manager
+    chromium
   ];
 
   nixpkgs.config.permittedInsecurePackages = [
       "electron-39.8.10"
   ];
+
+  programs.kdeconnect.enable = true;
 }
