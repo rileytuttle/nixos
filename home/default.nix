@@ -2,8 +2,6 @@
 
 {
   imports = [
-    # ./hyprland.nix
-    # ./niri.nix
   ];
   
   home.username = "rileytuttle";
@@ -15,18 +13,10 @@
     settings.user.name = "Riley Tuttle";
   };
 
-  # programs.hyprland = {
-  #   enable = true;
-  #   # set the flake package
-  #   package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
-  #   # make sure to also set the portal package, so that they are in sync
-  #   portalPackage = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.xdg-desktop-portal-hyprland;
-  # };
-
   # User packages (installed just for your user, not system-wide)
   home.packages = with pkgs; [
     fzf
-    tmux 
+    tmux
     firefox
     signal-desktop
     spotify
@@ -47,7 +37,6 @@
     vlc
   ];
 
-  home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles/kakrc/kakrc-hyprland";
   home.file.".tmux.conf".source = "${inputs.dotfiles}/dotfiles/.tmux.conf";
   home.file.".gitconfig".source = "${inputs.dotfiles}/dotfiles/.gitconfig";
 

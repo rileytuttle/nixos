@@ -14,23 +14,10 @@
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
-    hyprland = {
-      url = "github:hyprwm/Hyprland";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    hyprland-plugins = {
-      url = "github:hyprwm/hyprland-plugins";
-      inputs.hyprland.follows = "hyprland";
-    };
-    ashell.url = "github:MalpenZibo/ashell";
-    hyprspace = {
-      url = "github:KZDKM/Hyprspace";
-      inputs.hyprland.follows = "hyprland";
-    };
-    niri = {
-      url = "github:niri-wm/niri";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # niri = {
+    #   url = "github:niri-wm/niri";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
 
     nix-colors = {
       url = "github:misterio77/nix-colors";

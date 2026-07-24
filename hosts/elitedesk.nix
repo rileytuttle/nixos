@@ -41,6 +41,10 @@
         source      = "/mnt/user/starr_media/media/books";
         destination = "/mnt/storage/starr_media/media/books";
       };
+      library = {
+        source      = "/mnt/user/library";
+        destination = "/mnt/storage/library";
+      };
    };
   };
 

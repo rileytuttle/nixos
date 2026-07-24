@@ -7,8 +7,7 @@
     ../modules/kanata.nix
     ../modules/ssh.nix
     ../modules/tailscale.nix
-    # ../modules/hyprland.nix
-    ../modules/niri.nix
+    # ../modules/niri.nix
     ../modules/kde.nix
   ];
 
