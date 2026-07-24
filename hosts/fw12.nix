@@ -7,7 +7,6 @@
     ../modules/kanata.nix
     ../modules/ssh.nix
     ../modules/tailscale.nix
-    # ../modules/niri.nix
     ../modules/kde.nix
     ../modules/transmission.nix
     ../modules/steam.nix

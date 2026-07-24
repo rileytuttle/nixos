@@ -14,11 +14,6 @@
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
-    # niri = {
-    #   url = "github:niri-wm/niri";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
-
     nix-colors = {
       url = "github:misterio77/nix-colors";
     };
@@ -34,7 +29,6 @@
           nixos-hardware.nixosModules."framework-12-13th-gen-intel"
           ./hosts/fw12.nix
           ./modules/common.nix
-          ({ ... }: { nixpkgs.overlays = [ inputs.niri.overlays.default ]; })
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
