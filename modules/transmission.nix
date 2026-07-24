@@ -18,8 +18,8 @@
       rpc-password = "rileytuttle";
       rpc-port = 9091;
 
-      download-dir = "/var/lib/transmission/Downloads";
-      incomplete-dir = "/var/lib/transmission/.incomplete";
+      download-dir = "/home/rileytuttle/transmission/";
+      incomplete-dir = "/home/rileytuttle/transmission/.incomplete";
       incomplete-dir-enabled = true;
 
       peer-port = 51413;
@@ -28,7 +28,8 @@
     downloadDirPermissions = "0775";
   };
 
-
+  # let your user actually access files the daemon owns
+  users.users.rileytuttle.extraGroups = [ "transmission" ];
 
   # open peer port in addition to the RPC port
   networking.firewall.allowedTCPPorts = [ 51413 ];

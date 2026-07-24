@@ -12,6 +12,7 @@
     ../modules/transmission.nix
     ../modules/steam.nix
     ../modules/nzbget.nix
+    ../modules/bambustudio.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
@@ -21,13 +22,15 @@
   hardware.enableRedistributableFirmware = true;
 
   # Power management
-  boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
+  # boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
 
   # Hybrid sleep: suspends to RAM, but hibernates after delay if still sleeping
-  systemd.sleep.settings.Sleep = {
-    HibernateMode = "platform shutdown";
-    HibernateDelaySec = "5m";
-  };
+  # systemd.sleep.settings.Sleep = {
+  #   HibernateMode = "platform shutdown";
+  #   HibernateDelaySec = "5m";
+  # };
+
+  boot.kernelParams = [ "mem_sleep_default=deep" ];
 
   # Lid/power button behavior
   services.logind.settings.Login = {
@@ -35,7 +38,7 @@
     HandleSuspendKey = "suspend-then-hibernate";
     HandlePowerKey = "suspend-then-hibernate";
     IdleAction = "suspend-then-hibernate";
-    IdleActionSec = "5min";
+    IdleActionSec = "2min";
   };
 
   services.power-profiles-daemon.enable = false;
@@ -49,7 +52,7 @@
 
   # Bluetooth
   hardware.bluetooth.enable = true;
-  services.blueman.enable = true;
+  # services.blueman.enable = true;
 
   # Screen brightness control
   users.users.rileytuttle.extraGroups = [

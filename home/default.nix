@@ -37,6 +37,7 @@
     iw
   ];
 
+  home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles//kakrc/kakrc";
   home.file.".tmux.conf".source = "${inputs.dotfiles}/dotfiles/.tmux.conf";
   home.file.".gitconfig".source = "${inputs.dotfiles}/dotfiles/.gitconfig";
 
