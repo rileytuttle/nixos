@@ -50,16 +50,29 @@ let
 
   # --- sync job: fast, mtime+size based, actually transfers data ---
   mkSyncScript = name: job:
-    pkgs.writeShellScript "backup-${name}.sh" ''
+    let hasLimit = job.maxSize != null;
+    in pkgs.writeShellScript "backup-${name}.sh" ''
       set -uo pipefail
       LOG="$(mktemp)"
-      trap 'rm -f "$LOG"' EXIT
+      FILELIST="$(mktemp)"
+      trap 'rm -f "$LOG" "$FILELIST"' EXIT
 
       mkdir -p "${job.destination}"
 
-      ${pkgs.rsync}/bin/rsync -az --delete --delete-excluded \
-        --partial --partial-dir=.rsync-partial \
+      ${optionalString hasLimit ''
+      LIMIT_BYTES=$(${pkgs.coreutils}/bin/numfmt --from=iec ${job.maxSize})
+
+      ${pkgs.openssh}/bin/ssh ${sshOpts} "${cfg.remoteUser}@${cfg.remoteHost}" \
+        "find '${job.source}' -type f -printf '%T@\t%s\t%P\n'" \
+        | sort -t$'\t' -k1,1 -rn \
+        | ${pkgs.gawk}/bin/awk -F'\t' -v limit="$LIMIT_BYTES" \
+            '{ total += $2; if (total <= limit) print $3 }' \
+        > "$FILELIST"
+      ''}
+
+      ${pkgs.rsync}/bin/rsync -az --partial --partial-dir=.rsync-partial \
         --itemize-changes --info=progress2 \
+        ${optionalString hasLimit ''--files-from="$FILELIST"''} \
         ${concatStringsSep " " job.extraRsyncArgs} \
         -e "${pkgs.openssh}/bin/ssh ${sshOpts}" \
         "${cfg.remoteUser}@${cfg.remoteHost}:${job.source}/" \
@@ -174,6 +187,16 @@ let
         default = [ ];
         example = [ "--exclude=.cache" ];
         description = "Extra arguments passed to both the sync and verify rsync invocations.";
+      };
+      maxSize = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "1T";
+        description = ''
+          If set, only sync the most-recently-modified files (by mtime) that
+          fit within this size budget, instead of the full source tree.
+          Accepts any numfmt --from=iec string (e.g. "1TiB", "500GiB").
+        '';
       };
     };
   };

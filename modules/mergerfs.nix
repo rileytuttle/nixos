@@ -15,10 +15,21 @@
   # must follow the /mnt/diskN naming convention below -- mergerfs.nix's
   # device glob depends on it.
   #
-  # To expand later: partition/format the new drive, find its UUID with
-  # `lsblk -f`, add a new fileSystems."/mnt/diskN" block following the
-  # same pattern, rebuild. The mergerfs mount below picks it up
-  # automatically -- no change needed to the merge stanza itself.
+  #
+  # To expand later:
+  #   1. Find the new drive's device name: `lsblk` (e.g. /dev/sdc)
+  #   2. WIPE IT -- this destroys all existing data/partitions on the drive:
+  #        sudo wipefs -a /dev/sdc
+  #   3. Partition it (single partition, whole disk):
+  #        sudo parted /dev/sdc -- mklabel gpt
+  #        sudo parted /dev/sdc -- mkpart primary ext4 0% 100%
+  #   4. Format the new partition:
+  #        sudo mkfs.ext4 /dev/sdc1
+  #   5. Find its UUID: `lsblk -f`
+  #   6. Add a new fileSystems."/mnt/diskN" block following the same
+  #      pattern below, rebuild. The mergerfs mount picks it up
+  #      automatically -- no change needed to the merge stanza itself.
+  #
   ##########################################################################
 
   fileSystems."/mnt/disk1" = {
@@ -26,7 +37,17 @@
     fsType = "ext4";
   };
 
-  # fileSystems."/mnt/disk2" = {
+  fileSystems."/mnt/disk2" = {
+    device = "/dev/disk/by-uuid/3e7fbf13-830d-4403-b6f8-d3ddfd9ad283";
+    fsType = "ext4";
+  };
+
+  fileSystems."/mnt/disk3" = {
+    device = "/dev/disk/by-uuid/3c4bd2aa-47e7-4f11-9b63-570913913edb";
+    fsType = "ext4";
+  };
+
+  # fileSystems."/mnt/diskN" = {
   #   device = "/dev/disk/by-uuid/REPLACE-WITH-DISK2-UUID";
   #   fsType = "ext4";
   # };
@@ -54,7 +75,7 @@
     ];
     # Ensures systemd mounts disk1 (and disk2, disk3... once added) before
     # attempting the merged mount.
-    depends = [ "/mnt/disk1" ];
+    depends = [ "/mnt/disk1" "/mnt/disk2" "/mnt/disk3" ];
   };
 
   # Shared group so services (jellyfin, *arr stack, etc.) can read/write

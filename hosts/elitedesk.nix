@@ -17,6 +17,8 @@
     enable = true;
     remoteHost = "mahi";
     remoteUser = "root";
+    # TODO: write instructions on how to set up id_unraid_backup key.
+    # or at least write down as much as you can of what was done here
     sshKeyFile = "/root/.ssh/id_unraid_backup";
 
     # Optional: point notifications wherever you like (ntfy, webhook, mail...)
@@ -41,9 +43,20 @@
         source      = "/mnt/user/starr_media/media/books";
         destination = "/mnt/storage/starr_media/media/books";
       };
+
       library = {
         source      = "/mnt/user/library";
         destination = "/mnt/storage/library";
+      };
+      movies = {
+        source      = "/mnt/user/starr_media/media/movies";
+        destination = "/mnt/disk2/starr_media/media/movies";
+        maxSize     = "100G";
+      };
+      tv = {
+        source      = "/mnt/user/starr_media/media/tv";
+        destination = "/mnt/disk3/starr_media/media/tv";
+        maxSize     = "100G";
       };
    };
   };
