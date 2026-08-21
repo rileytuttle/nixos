@@ -12,6 +12,8 @@
     ../modules/steam.nix
     ../modules/nzbget.nix
     ../modules/bambustudio.nix
+    ../modules/deskflow.nix
+    ../modules/local-nginx.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want

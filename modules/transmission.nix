@@ -7,8 +7,8 @@
     package = pkgs.transmission_4;
     openRPCPort = true;
 
-    # flood-for-transmission replaces the built-in web UI
-    # webHome = pkgs.flood-for-transmission;
+    user = "rileytuttle";
+    group = "users";
 
     settings = {
       rpc-bind-address = "0.0.0.0";
@@ -25,11 +25,11 @@
       peer-port = 51413;
       utp-enabled = true;
     };
-    downloadDirPermissions = "0775";
+    # downloadDirPermissions = "0775";
   };
 
-  # let your user actually access files the daemon owns
-  users.users.rileytuttle.extraGroups = [ "transmission" ];
+  # # let your user actually access files the daemon owns
+  # users.users.rileytuttle.extraGroups = [ "transmission" ];
 
   # open peer port in addition to the RPC port
   networking.firewall.allowedTCPPorts = [ 51413 ];
