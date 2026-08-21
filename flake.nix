@@ -70,5 +70,13 @@
       };
 
     };
+
+    homeConfigurations.rt-dellpromax-24 = home-manager.lib.homeManagerConfiguration {
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        config.allowUnfree = true;
+      };
+      modules = [ ./hosts/rt-dellpromax-24.nix ];
+    };
   };
 }
