@@ -14,6 +14,7 @@
     ../modules/bambustudio.nix
     ../modules/deskflow.nix
     ../modules/local-nginx.nix
+    ../modules/android-tools.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
