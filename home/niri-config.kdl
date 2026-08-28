@@ -643,3 +643,9 @@ binds {
     // moving the mouse or pressing any other key.
     Mod+Shift+P { power-off-monitors; }
 }
+
+// Unmanaged local overrides/experiments, not tracked by home-manager.
+// Lets you iterate on niri settings (niri live-reloads on save) without a
+// nix rebuild. Promote anything that sticks back into this file.
+// `optional=true` means niri won't error if it doesn't exist yet.
+include optional=true "local.kdl"

@@ -4,6 +4,9 @@
 # from home/default.nix, so it's a single import to delete if niri doesn't
 # work out. Once you've settled on tweaks, move niri-config.kdl over to
 # your dotfiles repo and point this at `${inputs.dotfiles}/...` instead.
+#
+# config.kdl `include`s an unmanaged ~/.config/niri/local.kdl (not declared
+# here on purpose) for scratch tweaks that shouldn't need a rebuild.
 { ... }:
 
 {
