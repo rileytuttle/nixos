@@ -31,14 +31,9 @@
 { config, pkgs, inputs, ... }:
 
 let
-  username = "rileytuttle"; # <-- change if this isn't your login user
+  username = "rileytuttle";
 in
 {
-  imports = [
-    inputs.dms.homeModules.dank-material-shell
-    inputs.dms.homeModules.niri
-  ];
-
   # --- Compositor -----------------------------------------------------
 
   programs.niri.enable = true;
@@ -55,6 +50,11 @@ in
   # --- DankMaterialShell, layered on niri ------------------------------
 
   home-manager.users.${username} = {
+    imports = [
+      inputs.dms.homeModules.dank-material-shell
+      inputs.dms.homeModules.niri
+    ];
+
     programs.dank-material-shell = {
       enable = true;
 
