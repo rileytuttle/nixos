@@ -17,6 +17,10 @@
     nix-colors = {
       url = "github:misterio77/nix-colors";
     };
+    dms = {
+      url = "github:AvengeMedia/DankMaterialShell/stable";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs: {
