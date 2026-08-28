@@ -1,9 +1,17 @@
-{ pkgs, config, inputs, ... }:
-let niri = inputs.niri.packages.${pkgs.stdenv.hostPlatform.system}.niri;
-in
+{ config, pkgs, ... }:
+
 {
+  # `programs.niri.enable` (native nixpkgs module, no flake needed) just
+  # registers niri as a selectable session with whatever display manager is
+  # already running (SDDM, for Plasma here). It shows up as an extra option
+  # at the login screen — Plasma stays the default, untouched.
   programs.niri.enable = true;
+
   security.polkit.enable = true;
+
+  # niri-session sets up its own PATH; don't let NixOS's default
+  # systemd Environment= clobber it (breaks spawn actions otherwise).
+  systemd.user.services.niri.enableDefaultPath = false;
 
   systemd.user.services.polkit-gnome-authentication-agent-1 = {
     description = "polkit-gnome-authentication-agent-1";
@@ -14,15 +22,6 @@ in
       Restart = "on-failure";
     };
   };
-
-  environment.systemPackages = with pkgs; [
-    niri
-    gnome-terminal
-    wl-clipboard
-    fuzzel
-    swaylock
-    swayidle
-  ];
 
   systemd.user.services.swayidle = {
     description = "Idle manager for Wayland";
@@ -39,9 +38,10 @@ in
     };
   };
 
-  environment.etc."niri/config.kdl" = {
-    # or if it lives elsewhere:
-    source = "${inputs.dotfiles}/dotfiles/niri/config.kdl";
-  };
-
+  environment.systemPackages = with pkgs; [
+    fuzzel
+    swaylock
+    swayidle
+    wl-clipboard
+  ];
 }

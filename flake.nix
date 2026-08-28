@@ -37,7 +37,17 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.rileytuttle = import ./home/default.nix;
+            # niri.nix and dank-material-shell.nix are separate, fw12-only
+            # home-manager files (not part of home/default.nix) so either
+            # one can be dropped from this list on its own if it doesn't
+            # work out.
+            home-manager.users.rileytuttle = {
+              imports = [
+                ./home/default.nix
+                ./home/niri.nix
+                ./home/dank-material-shell.nix
+              ];
+            };
             home-manager.extraSpecialArgs = { inherit inputs; };
           }
         ];
