@@ -43,17 +43,10 @@ in
 
   programs.niri.enable = true;
 
-  # Log in straight to a niri session. If you already have a display
-  # manager configured elsewhere (e.g. greetd for a different session
-  # picker), delete this block and just select "niri" at your existing
-  # login screen instead.
-  services.greetd = {
-    enable = true;
-    settings.default_session = {
-      command = "${config.programs.niri.package}/bin/niri-session";
-      user = username;
-    };
-  };
+  # No display-manager config here on purpose: `programs.niri.enable`
+  # registers niri as a selectable session with whatever display manager
+  # you already have running (SDDM, for Plasma). It'll just show up as an
+  # extra option at the login screen — Plasma stays the default, untouched.
 
   # niri-session sets up its own PATH; don't let NixOS's default
   # systemd Environment= clobber it (breaks spawn actions otherwise).
