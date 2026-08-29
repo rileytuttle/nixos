@@ -23,25 +23,13 @@
     };
   };
 
-  systemd.user.services.swayidle = {
-    description = "Idle manager for Wayland";
-    partOf = [ "graphical-session.target" ];
-    wantedBy = [ "graphical-session.target" ];
-    after = [ "graphical-session.target" ];
-    serviceConfig = {
-      ExecStart = ''
-        ${pkgs.swayidle}/bin/swayidle -w \
-          timeout 300 '${pkgs.swaylock}/bin/swaylock' \
-          before-sleep '${pkgs.swaylock}/bin/swaylock' \
-      '';
-      Restart = "on-failure";
-    };
-  };
+  # DMS (dank-material-shell.nix) owns idle detection, auto-lock/suspend,
+  # and the lock screen itself — it's meant to replace swayidle+swaylock,
+  # not run alongside them. Configure idle timeout/auto-lock in DMS's own
+  # Settings UI (lock_screen / power_sleep tabs, Mod+Shift+Comma).
 
   environment.systemPackages = with pkgs; [
     fuzzel
-    swaylock
-    swayidle
     wl-clipboard
   ];
 }
