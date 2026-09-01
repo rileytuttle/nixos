@@ -327,6 +327,20 @@ window-rule {
     open-floating true
 }
 
+// Kakoune notepad: a gnome-terminal running `kak`, tagged with a distinct
+// title (set via `--title` in the Mod+P bind below) so this rule only
+// matches this one terminal, floating in the bottom-right corner like a
+// slide-out panel. Replaces DMS's built-in notepad, which is its own QML
+// text widget with no way to point it at an external editor.
+window-rule {
+    match app-id=r#"^org\.gnome\.Terminal$"# title="^kak-notepad$"
+    open-floating true
+    open-focused true
+    default-column-width { fixed 900; }
+    default-window-height { fixed 600; }
+    default-floating-position x=24 y=24 relative-to="bottom-right"
+}
+
 // Example: block out two password managers from screen capture.
 // (This example rule is commented out with a "/-" in front.)
 /-window-rule {
@@ -372,7 +386,7 @@ binds {
     Mod+Space hotkey-overlay-title="Toggle Application Launcher" { spawn "dms" "ipc" "spotlight" "toggle"; }
     Mod+N hotkey-overlay-title="Toggle Notification Center" { spawn "dms" "ipc" "notifications" "toggle"; }
     Mod+Shift+Comma hotkey-overlay-title="Toggle Settings" { spawn "dms" "ipc" "settings" "toggle"; }
-    Mod+P hotkey-overlay-title="Toggle Notepad" { spawn "dms" "ipc" "notepad" "toggle"; }
+    Mod+P hotkey-overlay-title="Open Kakoune Notepad" { spawn "gnome-terminal" "--title=kak-notepad" "--" "kak"; }
     Mod+X hotkey-overlay-title="Toggle Power Menu" { spawn "dms" "ipc" "powermenu" "toggle"; }
     Mod+Alt+N hotkey-overlay-title="Toggle Night Mode" { spawn "dms" "ipc" "night" "toggle"; }
     Mod+Ctrl+V hotkey-overlay-title="Toggle Clipboard Manager" { spawn "dms" "ipc" "clipboard" "toggle"; }
