@@ -20,5 +20,5 @@ in
 {
   home.packages = [ kakoune-rt ];
   home.sessionVariables.EDITOR = "kak";
-  home.file.".config/kak/kakrc".source = ~/Configs/dotfiles/kakrc/kakrc;
+  home.file.".config/kak/kakrc".source = ./kakrc;
 }

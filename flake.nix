@@ -78,5 +78,16 @@
       };
       modules = [ ./hosts/rt-dellpromax-24.nix ];
     };
+
+    homeConfigurations.agx-orin = home-manager.lib.homeManagerConfiguration {
+      pkgs = import nixpkgs {
+        system = "aarch64-linux";
+        config.allowUnfree = true;
+      };
+      modules = [
+        ./hosts/agx-orin.nix
+	./home/kakoune.nix
+      ];
+    };
   };
 }
