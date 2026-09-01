@@ -35,13 +35,21 @@
 
   boot.kernelParams = [ "mem_sleep_default=deep" ];
 
-  # Lid/power button behavior
+  # Lid/power button behavior.
+  #
+  # Deliberately NOT setting IdleAction/IdleActionSec here: that's logind's
+  # own independent idle timer, running alongside DMS's idle detection
+  # (modules/niri.nix says DMS owns idle detection, auto-lock/suspend, and
+  # the lock screen). With both enabled, going idle could fire two separate
+  # triggers close together — DMS's own idle-timeout lock, and then
+  # logind's IdleAction suspending (and DMS locking again for the
+  # PrepareForSleep signal) — which showed up as the screen unlocking for a
+  # moment and immediately relocking. DMS's own idle timeout (Settings ->
+  # power_sleep) is the only thing that should trigger auto-lock/suspend.
   services.logind.settings.Login = {
     HandleLidSwitch = "suspend-then-hibernate";
     HandleSuspendKey = "suspend-then-hibernate";
     HandlePowerKey = "suspend-then-hibernate";
-    IdleAction = "suspend-then-hibernate";
-    IdleActionSec = "2min";
   };
 
   services.power-profiles-daemon.enable = false;
