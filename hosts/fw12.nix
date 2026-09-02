@@ -27,30 +27,10 @@
   # Power management
   # boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
 
-  # Hybrid sleep: suspends to RAM, but hibernates after delay if still sleeping
-  # systemd.sleep.settings.Sleep = {
-  #   HibernateMode = "platform shutdown";
-  #   HibernateDelaySec = "5m";
-  # };
-
-  boot.kernelParams = [ "mem_sleep_default=deep" ];
-
-  # Lid/power button behavior.
-  #
-  # Deliberately NOT setting IdleAction/IdleActionSec here: that's logind's
-  # own independent idle timer, running alongside DMS's idle detection
-  # (modules/niri.nix says DMS owns idle detection, auto-lock/suspend, and
-  # the lock screen). With both enabled, going idle could fire two separate
-  # triggers close together — DMS's own idle-timeout lock, and then
-  # logind's IdleAction suspending (and DMS locking again for the
-  # PrepareForSleep signal) — which showed up as the screen unlocking for a
-  # moment and immediately relocking. DMS's own idle timeout (Settings ->
-  # power_sleep) is the only thing that should trigger auto-lock/suspend.
-  services.logind.settings.Login = {
-    HandleLidSwitch = "suspend-then-hibernate";
-    HandleSuspendKey = "suspend-then-hibernate";
-    HandlePowerKey = "suspend-then-hibernate";
-  };
+  # Sleep/lock config stripped back to NixOS/logind defaults (no
+  # mem_sleep_default override, no suspend-then-hibernate, no custom
+  # IdleAction) to rule out our own tweaks while chasing the niri sleep bug.
+  # Re-add pieces here once the stock behavior is confirmed working.
 
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;

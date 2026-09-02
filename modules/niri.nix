@@ -27,6 +27,12 @@
   # and the lock screen itself — it's meant to replace swayidle+swaylock,
   # not run alongside them. Configure idle timeout/auto-lock in DMS's own
   # Settings UI (lock_screen / power_sleep tabs, Mod+Shift+Comma).
+  #
+  # These settings live in DMS's own state, not in this repo, so they
+  # aren't reset by a nix rebuild — while chasing the sleep bug, disable
+  # DMS's idle timeout/auto-lock/auto-suspend there by hand too, so niri's
+  # own Mod+Shift+P (power-off-monitors) and logind's stock lid/suspend/
+  # power-key handling are the only things left in the loop.
 
   environment.systemPackages = with pkgs; [
     fuzzel
