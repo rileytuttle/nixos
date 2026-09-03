@@ -46,6 +46,7 @@
                 ./home/default.nix
                 ./home/niri.nix
                 ./home/dank-material-shell.nix
+                ./home/claude-code.nix
               ];
             };
             home-manager.extraSpecialArgs = { inherit inputs; };

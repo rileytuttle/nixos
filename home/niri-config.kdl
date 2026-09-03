@@ -386,7 +386,7 @@ binds {
     Mod+Space hotkey-overlay-title="Toggle Application Launcher" { spawn "dms" "ipc" "spotlight" "toggle"; }
     Mod+N hotkey-overlay-title="Toggle Notification Center" { spawn "dms" "ipc" "notifications" "toggle"; }
     Mod+Shift+Comma hotkey-overlay-title="Toggle Settings" { spawn "dms" "ipc" "settings" "toggle"; }
-    Mod+P hotkey-overlay-title="Open Kakoune Notepad" { spawn "gnome-terminal" "--title=kak-notepad" "--" "kak"; }
+    Mod+P hotkey-overlay-title="Toggle Kakoune Notepad" { spawn "/home/rileytuttle/.local/bin/toggle-kakoune-notes.sh"; }
     Mod+X hotkey-overlay-title="Toggle Power Menu" { spawn "dms" "ipc" "powermenu" "toggle"; }
     Mod+Alt+N hotkey-overlay-title="Toggle Night Mode" { spawn "dms" "ipc" "night" "toggle"; }
     Mod+Ctrl+V hotkey-overlay-title="Toggle Clipboard Manager" { spawn "dms" "ipc" "clipboard" "toggle"; }

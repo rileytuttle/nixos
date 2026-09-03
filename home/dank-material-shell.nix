@@ -23,4 +23,8 @@
       dynamicTheming = true;
     };
   };
+
+  # Add our toggle script for Kakoune notes
+  home.file.".local/bin/toggle-kakoune-notes.sh".text = builtins.readFile ./toggle-kakoune-notes.sh;
+  home.file.".local/bin/toggle-kakoune-notes.sh".executable = true;
 }
