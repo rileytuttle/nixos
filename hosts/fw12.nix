@@ -24,6 +24,12 @@
   # but laptops often need firmware
   hardware.enableRedistributableFirmware = true;
 
+  # Hybrid sleep: suspends to RAM, but hibernates after delay if still sleeping
+  systemd.sleep.settings.Sleep = {
+    HibernateMode = "platform shutdown";
+    HibernateDelaySec = "5m";
+  };
+
   # Power management
   boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
 
@@ -31,7 +37,7 @@
   # mem_sleep_default override, no suspend-then-hibernate, no custom
   # IdleAction) to rule out our own tweaks while chasing the niri sleep bug.
   # Re-add pieces here once the stock behavior is confirmed working.
-  boot.kernelParams = [ "mem_sleep_default=deep" ];
+  # boot.kernelParams = [ "mem_sleep_default=deep" ];
 
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;
