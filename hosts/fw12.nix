@@ -16,6 +16,7 @@
     ../modules/local-nginx.nix
     ../modules/android-tools.nix
     ../modules/niri.nix
+    ../modules/smart-sleep.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
