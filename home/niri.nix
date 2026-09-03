@@ -7,8 +7,9 @@
 #
 # config.kdl `include`s an unmanaged ~/.config/niri/local.kdl (not declared
 # here on purpose) for scratch tweaks that shouldn't need a rebuild.
-{ ... }:
+{ pkgs, ... }:
 
 {
+  home.packages = with pkgs; [ wvkbd ];
   xdg.configFile."niri/config.kdl".source = ./niri-config.kdl;
 }
