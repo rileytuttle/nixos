@@ -25,12 +25,13 @@
   hardware.enableRedistributableFirmware = true;
 
   # Power management
-  # boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
+  boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
 
   # Sleep/lock config stripped back to NixOS/logind defaults (no
   # mem_sleep_default override, no suspend-then-hibernate, no custom
   # IdleAction) to rule out our own tweaks while chasing the niri sleep bug.
   # Re-add pieces here once the stock behavior is confirmed working.
+  boot.kernelParams = [ "mem_sleep_default=deep" ];
 
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;

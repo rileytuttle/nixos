@@ -38,6 +38,7 @@
     xemu
     wl-clipboard
     keychain
+    jq
   ];
 
   home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles//kakrc/kakrc";
