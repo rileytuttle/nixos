@@ -28,7 +28,8 @@ if session_exists; then
     if niri msg action focus-window --id $(niri msg -j windows | jq -r '.[] | select(.title | test("kak-notes"; "i")) | .id') 2>/dev/null; then
 
         # Window found - toggle its floating state (this will hide/show it)
-        # echo "Toggling visibility of existing Kakoune window"
+        echo "Toggling visibility of existing Kakoune window"
+        echo "currently toggling is disabled"
         # niri msg action "toggle-window-floating"
     else
         # Session exists but no window found - this shouldn't happen normally,
