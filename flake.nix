@@ -21,6 +21,13 @@
       url = "github:AvengeMedia/DankMaterialShell/stable";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # rt-dellpromax-24 only. DMS is Quickshell (Qt6/QML) from nix, so on a
+    # foreign distro it links nix's libEGL and cannot see Ubuntu's GL driver.
+    # See home/niri-generic-linux.nix. fw12 is NixOS and never touches this.
+    nixgl = {
+      url = "github:nix-community/nixGL";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs: {
@@ -86,12 +93,29 @@
 
     };
 
+    # rt-dellpromax-24 is Ubuntu with nix as a plain package manager, not
+    # NixOS — hence standalone home-manager rather than a nixosConfiguration.
+    # niri itself is built from source into /usr/local by
+    # scripts/install-niri-from-source.sh (which also drops the gdm session
+    # entry); nix supplies the config plus the userland pieces that
+    # modules/niri.nix installs system-wide on fw12. See
+    # home/niri-generic-linux.nix.
     homeConfigurations.rt-dellpromax-24 = home-manager.lib.homeManagerConfiguration {
       pkgs = import nixpkgs {
         system = "x86_64-linux";
         config.allowUnfree = true;
+        # Supplies pkgs.nixgl.*, used by home/niri-generic-linux.nix to wrap
+        # DMS. Scoped to this host's pkgs, so fw12 is unaffected.
+        overlays = [ inputs.nixgl.overlay ];
       };
-      modules = [ ./hosts/rt-dellpromax-24.nix ];
+      # dank-material-shell.nix reaches for inputs.dms, so this is required.
+      extraSpecialArgs = { inherit inputs; };
+      modules = [
+        ./hosts/rt-dellpromax-24.nix
+        ./home/niri.nix
+        ./home/dank-material-shell.nix
+        ./home/niri-generic-linux.nix
+      ];
     };
   };
 }

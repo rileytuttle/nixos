@@ -1,6 +1,10 @@
-# fw12-only home-manager module (wired in flake.nix, not home/default.nix).
-# Separate from home/niri.nix so DMS itself can be turned off independently
-# of the niri session, in case it doesn't work out.
+# Opt-in home-manager module (wired in flake.nix, not home/default.nix).
+# Used by fw12 and rt-dellpromax-24. Separate from home/niri.nix so DMS
+# itself can be turned off independently of the niri session, in case it
+# doesn't work out.
+#
+# Needs `inputs` in scope — on standalone home-manager configs that means
+# passing extraSpecialArgs = { inherit inputs; } to homeManagerConfiguration.
 { inputs, ... }:
 
 {
