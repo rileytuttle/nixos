@@ -11,6 +11,7 @@
     ../modules/transmission.nix
     ../modules/steam.nix
     ../modules/nzbget.nix
+    ../modules/listenarr.nix
     ../modules/bambustudio.nix
     ../modules/deskflow.nix
     ../modules/local-nginx.nix
