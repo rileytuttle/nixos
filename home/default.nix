@@ -1,9 +1,14 @@
-{ config, pkgs, inputs, ... }:
+{
+  config,
+  pkgs,
+  inputs,
+  ...
+}:
 
 {
   imports = [
   ];
-  
+
   home.username = "rileytuttle";
   home.homeDirectory = "/home/rileytuttle";
 
@@ -15,30 +20,31 @@
 
   # User packages (installed just for your user, not system-wide)
   home.packages = with pkgs; [
-    fzf
-    tmux
+    bitwarden-desktop
+    discord
     firefox
-    signal-desktop
-    spotify
-    xclip
-    qrencode
+    fzf
+    glow
+    iw
+    jq
+    keychain
+    opencode
     openscad
     prusa-slicer
-    xournalpp
-    ripgrep
-    slack
-    bitwarden-desktop
-    rpi-imager
-    discord
-    spotify
     python3
+    qrencode
+    ripgrep
+    rpi-imager
+    signal-desktop
+    slack
+    spotify
+    spotify
+    tmux
     vlc
-    iw
-    opencode
-    xemu
     wl-clipboard
-    keychain
-    jq
+    xclip
+    xemu
+    xournalpp
   ];
 
   home.file.".config/kak/kakrc".source = "${inputs.dotfiles}/dotfiles//kakrc/kakrc";

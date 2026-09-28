@@ -4,6 +4,7 @@
   home.homeDirectory = "/home/rileytuttle";
   home.packages = with pkgs; [
     chromium
+    glow
   ];
 
   home.sessionVariables = {
