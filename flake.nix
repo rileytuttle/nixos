@@ -115,6 +115,7 @@
         ./home/niri.nix
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
+        ./home/helix.nix
       ];
     };
   };
