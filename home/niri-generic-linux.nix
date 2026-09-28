@@ -55,7 +55,6 @@ in
     fuzzel        # Mod+D
     wl-clipboard
 
-    swaylock      # Mod+Alt+L — referenced by niri-config.kdl, installed nowhere else
     polkit_gnome  # for the user service below
     jq            # toggle-kakoune-notes.sh needs it (normally from home/default.nix)
   ];
