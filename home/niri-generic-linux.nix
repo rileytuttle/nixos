@@ -61,17 +61,28 @@ in
 
   # Ported from modules/niri.nix. Note home-manager wants capitalised
   # systemd section attrs (Unit/Service/Install), unlike the NixOS module.
+  #
+  # Hooked to niri.service rather than graphical-session.target. This box
+  # also has Ubuntu's GNOME session, which reaches graphical-session.target
+  # too — and gnome-shell already registers its own polkit agent, so a
+  # second one dies with "An authentication agent already exists", leaving
+  # the user manager degraded (and home-manager switch complaining) any
+  # time you're logged into GNOME. It also can't start with no Wayland
+  # display (e.g. switching from an ssh/tty session).
   systemd.user.services.polkit-gnome-authentication-agent-1 = {
     Unit = {
       Description = "polkit-gnome-authentication-agent-1";
       PartOf = [ "graphical-session.target" ];
-      After = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" "niri.service" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
       ExecStart = "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1";
       Restart = "on-failure";
+      RestartSec = 1;
+      TimeoutStopSec = 10;
     };
-    Install.WantedBy = [ "graphical-session.target" ];
+    Install.WantedBy = [ "niri.service" ];
   };
 
   # Load-bearing. niri-config.kdl spawns bare `dms`, `fuzzel`, `swaylock`,

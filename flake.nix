@@ -106,7 +106,20 @@
         config.allowUnfree = true;
         # Supplies pkgs.nixgl.*, used by home/niri-generic-linux.nix to wrap
         # DMS. Scoped to this host's pkgs, so fw12 is unaffected.
-        overlays = [ inputs.nixgl.overlay ];
+        #
+        # Hand-rolled rather than inputs.nixgl.overlay: upstream's overlay
+        # reads `final.system`, which trips nixpkgs' "'system' has been
+        # renamed to 'stdenv.hostPlatform.system'" eval warning. This is
+        # the same thing with the flags spelled out for x86_64-linux.
+        overlays = [
+          (final: _: {
+            nixgl = import "${inputs.nixgl}/default.nix" {
+              pkgs = final;
+              enable32bits = true;
+              enableIntelX86Extensions = true;
+            };
+          })
+        ];
       };
       # dank-material-shell.nix reaches for inputs.dms, so this is required.
       extraSpecialArgs = { inherit inputs; };
