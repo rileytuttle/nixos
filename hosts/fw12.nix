@@ -34,24 +34,44 @@
   # from the generated hardware config, not from here.
   hardware.intelgpu.driver = "xe";
 
-  # Suspend first, then hibernate to disk if still asleep after
-  # HibernateDelaySec. Short enough that a closed lid in a bag doesn't
-  # drain the battery, long enough that closing the lid to walk across the
-  # room still resumes instantly from RAM.
+  # Suspend first, then hibernate to disk once the battery is actually at
+  # risk. There is no choice to make about *which* suspend: this mainboard
+  # has no S3 at all -- /sys/power/mem_sleep offers only s2idle, and
+  # /proc/acpi/wakeup lists S4 (never S3) against every wake device. So
+  # "suspend" here always means s2idle, i.e. hardware S0ix, and
+  # mem_sleep_default=deep would be a no-op. Nothing to set for that;
+  # MemorySleepMode is deliberately left unset because s2idle is the only
+  # value the kernel would accept anyway.
+  #
+  # The hand-off to hibernate is battery-driven rather than on a short
+  # timer. With a battery present, systemd arms the ACPI _BTP low-battery
+  # alarm first and uses HibernateDelaySec only as an additional, earlier
+  # deadline -- whichever fires first (systemd-sleep.conf(5)). This battery
+  # does support _BTP (/sys/class/power_supply/BAT1/alarm is populated, at
+  # ~10% of charge_full), so the alarm is the mechanism that normally wins.
+  #
+  # HibernateOnACPower = false is the point of the pair: docked on AC it
+  # stays in S0ix indefinitely and never writes a 15G image, and the 2h
+  # countdown only starts once AC is unplugged. That option is documented
+  # as having no effect unless HibernateDelaySec is also set, which is why
+  # the delay stays here instead of being dropped for the default.
   #
   # Every way of getting here (lid, DMS power menu, DMS idle timeout) goes
   # through `smart-sleep suspend-then-hibernate`, which closes Bitwarden
   # first -- its secret memory blocks hibernation kernel-wide. See
   # modules/smart-sleep.nix.
   systemd.sleep.settings.Sleep = {
+    # Fallback list: "platform" needs ACPI to have registered
+    # hibernation_ops, and systemd falls through to "shutdown" by itself if
+    # it didn't. `cat /sys/power/disk` shows what the kernel actually
+    # offers (it reads "[disabled]" whenever hibernation is unavailable).
     HibernateMode = "platform shutdown";
-    HibernateDelaySec = "5min";
+    HibernateDelaySec = "2h";
+    HibernateOnACPower = false;
   };
 
   # Power management
   boot.resumeDevice = "/dev/disk/by-uuid/bcddfcc6-5946-4b9d-b288-904520de5ac0";
-
-  # boot.kernelParams = [ "mem_sleep_default=deep" ];
 
   # DMS idle/power-menu actions. Suspend behavior stays "Suspend" (0) on
   # purpose: DMS's own SuspendThenHibernate behavior calls systemctl
