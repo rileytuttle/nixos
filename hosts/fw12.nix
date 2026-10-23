@@ -27,6 +27,13 @@
   # but laptops often need firmware
   hardware.enableRedistributableFirmware = true;
 
+  # The Core Series 3 iGPU (8086:fd80) has no i915 PCI id -- only xe claims
+  # it. nixos-hardware's default here is i915, which means stage 1 loads a
+  # driver that can never bind and KMS waits for udev in stage 2.
+  # hardware.cpu.intel.npu.enable for this board's NPU (8086:fd3e) comes
+  # from the generated hardware config, not from here.
+  hardware.intelgpu.driver = "xe";
+
   # Suspend first, then hibernate to disk if still asleep after
   # HibernateDelaySec. Short enough that a closed lid in a bag doesn't
   # drain the battery, long enough that closing the lid to walk across the

@@ -30,14 +30,95 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs: {
+  outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs:
+  let
+    system = "x86_64-linux";
+    pkgs = nixpkgs.legacyPackages.${system};
+  in {
+    # `nix run .#refresh-hardware-config` -- re-run the install-time
+    # hardware scan and update hosts/<hostname>-hardware-configuration.nix.
+    # See scripts/refresh-hardware-config.nix for why this is a command you
+    # run rather than something the flake imports on its own.
+    apps.${system}.refresh-hardware-config = {
+      type = "app";
+      program = "${import ./scripts/refresh-hardware-config.nix { inherit pkgs; }}/bin/refresh-hardware-config";
+      meta.description = "Regenerate hosts/<hostname>-hardware-configuration.nix from the live hardware";
+    };
+
+    # `nix develop .#gpu` -- the once-in-a-while GPU toolbox. Deliberately
+    # not in any host's systemPackages: these get reached for when
+    # something looks wrong, not daily.
+    #
+    # Worth having as a devShell rather than ad-hoc `nix shell nixpkgs#...`
+    # for two reasons: it pins the tools to this flake's nixpkgs, so Mesa
+    # here matches the Mesa the system is running, and it records which
+    # tools actually work on this hardware. That last part is not obvious --
+    # see the note on intel_gpu_top below.
+    devShells.${system}.gpu = pkgs.mkShell {
+      packages = with pkgs; [
+        # Live per-process utilization. Reads DRM fdinfo, which is why it
+        # works on xe and needs no root.
+        #
+        # NOT intel-gpu-tools: as of 2.3 intel_gpu_top's engine counters
+        # only know the i915 PMU. On this board it finds the card
+        # (`intel_gpu_top -L` prints "Intel Pantherlake (Gen30)") and then
+        # fails with "Failed to detect engines!" for every -d filter. xe's
+        # PMU exists, just under another name:
+        # /sys/bus/event_source/devices/xe_0000_00_02.0
+        nvtopPackages.intel
+
+        pciutils      # lspci
+        libva-utils   # vainfo -- video decode/encode profiles
+        vulkan-tools  # vulkaninfo --summary, vkcube
+        mesa-demos    # eglinfo, glxinfo; 400+ binaries, hence shell-only
+
+        glmark2       # OpenGL benchmark
+        vkmark        # Vulkan benchmark
+        clpeak        # OpenCL compute throughput
+      ];
+
+      shellHook = ''
+        cat <<'EOF'
+        GPU toolbox. Measured on fw12 (Core Series 3 / Wildcat Lake, xe):
+
+          nvtop                        live util, per-process, no root
+          lspci -nnk | grep -A3 VGA    which driver claimed the GPU
+          vainfo                       video decode/encode profiles
+          vulkaninfo --summary         Vulkan devices
+          eglinfo -B | grep -i render  GL renderer -- "llvmpipe" here means
+                                       you are rendering on the CPU
+          vkcube --c 100               end-to-end render smoke test
+
+          glmark2-wayland              OpenGL bench      (scored 3317)
+          glmark2-wayland --fullscreen  ...at real resolution
+          glmark2-wayland --run-forever sustained load, to watch nvtop move
+          vkmark                       Vulkan bench      (scored 13946)
+          clpeak                       OpenCL   (1251 GFLOPS fp32 / 2485 fp16)
+        EOF
+      '';
+    };
+
     nixosConfigurations = {
 
       fw12 = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = { inherit inputs; };
         modules = [
-          nixos-hardware.nixosModules."framework-12-13th-gen-intel"
+          # Not framework-12-13th-gen-intel: this is the Intel Core Series 3
+          # mainboard ("Core 5 320", family 6 model 213), and that module's
+          # one distinctive setting -- pinctrl_tigerlake in initrd, to beat
+          # soc_button_array to the tablet-mode GPIO -- is dead here. On this
+          # board the pinctrl driver is pinctrl_intel_platform, INT33D3:00
+          # has no driver bound at all, and orientation comes off the EC
+          # (cros-ec-lid-angle in /sys/bus/iio/devices) instead.
+          #
+          # nixos-hardware has no Framework 12 Core-Series-3 module yet (as of
+          # rev 1b418b8, 2026-10-22), so import the generation-neutral 12-inch
+          # base by path. That still brings fwupd, framework-laptop-kmod,
+          # framework-tool, iio sensors, tlp and the SSD tuning; only the
+          # 13th-gen-specific initrd module is dropped.
+          (inputs.nixos-hardware + "/framework/12-inch/common")
+          (inputs.nixos-hardware + "/common/cpu/intel")
           ./hosts/fw12.nix
           ./modules/common.nix
           home-manager.nixosModules.home-manager
