@@ -419,8 +419,8 @@ binds {
     // but you need to manually put each argument in separate "" quotes.
     // XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
     // XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
-    XF86MonBrightnessUp { spawn "dms" "ipc" "call" "brightness" "increment" "5"; }
-    XF86MonBrightnessDown { spawn "dms" "ipc" "call" "brightness" "decrement" "5"; }
+    XF86MonBrightnessUp { spawn "dms" "ipc" "call" "brightness" "increment" "5" "backlight:intel_backlight"; }
+    XF86MonBrightnessDown { spawn "dms" "ipc" "call" "brightness" "decrement" "5" "backlight:intel_backlight"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,
@@ -434,8 +434,10 @@ binds {
     Mod+Up    { focus-window-up; }
     Mod+Right { focus-column-right; }
     Mod+H     { focus-column-left; }
-    Mod+J     { focus-window-down; }
-    Mod+K     { focus-window-up; }
+    // J/K move between workspaces, not windows within a column -- the
+    // arrow keys and Mod+Down/Up still do window-within-column.
+    Mod+J     { focus-workspace-down; }
+    Mod+K     { focus-workspace-up; }
     Mod+L     { focus-column-right; }
 
     Mod+Ctrl+Left  { move-column-left; }
@@ -658,6 +660,9 @@ binds {
     // Powers off the monitors. To turn them back on, do any input like
     // moving the mouse or pressing any other key.
     Mod+Shift+P { power-off-monitors; }
+
+    // Toggle the on-screen keyboard (wvkbd is installed by home/niri.nix).
+    Ctrl+Escape { spawn-sh "pkill wvkbd-mobintl || wvkbd-mobintl"; }
 }
 
 // Unmanaged local overrides/experiments, not tracked by home-manager.
