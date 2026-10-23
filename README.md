@@ -286,14 +286,11 @@ If you encounter issues during rebuild:
 
 ### Sleep/Power Management
 
-The current fw12 configuration has a specific sleep/lock configuration that was adjusted to help debug a niri sleep bug:
+fw12 suspends, then hibernates to disk after 5 minutes asleep (`HibernateDelaySec` in `hosts/fw12.nix`).
 
-```nix
-# Sleep/lock config stripped back to NixOS/logind defaults (no
-# mem_sleep_default override, no suspend-then-hibernate, no custom
-# IdleAction) to rule out our own tweaks while chasing the niri sleep bug.
-# Re-add pieces here once the stock behavior is confirmed working.
-boot.kernelParams = [ "mem_sleep_default=deep" ];
-```
+Every sleep entry point goes through `smart-sleep suspend-then-hibernate` (`modules/smart-sleep.nix`):
 
-To restore more aggressive power management settings, you can uncomment or modify these settings in `fw12.nix`.
+- **Lid close**: handled by acpid (logind's `HandleLidSwitch` is `ignore`). Skipped when an external display is connected, or when a desktop like Plasma holds a `handle-lid-switch` inhibitor.
+- **DMS power menu / idle timeout**: DMS's custom suspend/hibernate commands are pinned in `hosts/fw12.nix`. On battery it locks after 5 min idle and suspends after 10. On AC it locks after 15 and suspends after 30.
+
+Bitwarden holds `memfd_secret()` memory, which makes the kernel refuse to hibernate. `smart-sleep` closes it before any hibernate-type sleep and sends a notification. Failures and fallbacks are logged to `journalctl -t smart-sleep`.

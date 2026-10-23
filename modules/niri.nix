@@ -28,11 +28,9 @@
   # not run alongside them. Configure idle timeout/auto-lock in DMS's own
   # Settings UI (lock_screen / power_sleep tabs, Mod+Shift+Comma).
   #
-  # These settings live in DMS's own state, not in this repo, so they
-  # aren't reset by a nix rebuild — while chasing the sleep bug, disable
-  # DMS's idle timeout/auto-lock/auto-suspend there by hand too, so niri's
-  # own Mod+Shift+P (power-off-monitors) and logind's stock lid/suspend/
-  # power-key handling are the only things left in the loop.
+  # On fw12 the sleep-related DMS settings (idle timeouts, custom
+  # suspend/hibernate commands) are pinned in hosts/fw12.nix so they route
+  # through smart-sleep; see modules/smart-sleep.nix.
 
   environment.systemPackages = with pkgs; [
     fuzzel
