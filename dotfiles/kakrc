@@ -7,10 +7,6 @@ hook global InsertKey K %{ try %{
     execute-keys <esc>
 }}
 
-hook global ModuleLoaded tmux %{
-    alias global popup tmux-terminal-vertical
-}
-
 map global normal ^ q
 map global normal <a-^> Q
 map global normal q b
@@ -179,20 +175,54 @@ define-command line_numbering -docstring 'take selection and number the lines' %
 map global normal <c-l> ': line_numbering<ret>'
 
 # windowing
-define-command -docstring "vsplit [<commands>]: split tmux horizontally |" vsplit -params .. -command-completion %{
-    tmux-terminal-horizontal kak -c %val{session} -e "%arg{@}"
+#
+# Written against kakoune's generic windowing layer rather than tmux-terminal-*
+# directly, so these work inside tmux and outside it.
+# rc/windowing/detection.kak autodetects the environment into
+# `windowing_module`, `terminal` dispatches to <module>-terminal-<placement>,
+# and `new` is the same thing for a new Kakoune client. `set local` inside
+# evaluate-commands is the documented way to scope a placement to one call.
+#
+# Not every module has every placement. tmux has all three. niri has no real
+# splits, so its module maps the closest thing: horizontal -> a new column
+# beside this one, vertical -> consume the new window into this column. The
+# plain wayland and x11 modules only know how to open a window, which is what
+# the try/catch fallback is for -- a missing <module>-terminal-<placement>
+# command raises before anything is spawned, so falling back to `new` costs
+# nothing. (This also meant the splits silently did nothing outside tmux
+# before, since tmux-terminal-* simply doesn't exist there.)
+define-command -docstring "vsplit [<commands>]: new client beside this one |" vsplit -params .. -command-completion %{
+    try %{
+        evaluate-commands %{ set local windowing_placement horizontal; new %arg{@} }
+    } catch %{
+        new %arg{@}
+    }
 }
-define-command -docstring "hsplit [<commands>]: split tmux vertically -" hsplit -params .. -command-completion %{
-    tmux-terminal-vertical kak -c %val{session} -e "%arg{@}"
+define-command -docstring "hsplit [<commands>]: new client below this one -" hsplit -params .. -command-completion %{
+    try %{
+        evaluate-commands %{ set local windowing_placement vertical; new %arg{@} }
+    } catch %{
+        new %arg{@}
+    }
 }
-define-command -docstring "tabnew [<commands>]: create new tmux window" tabnew -params .. -command-completion %{
-    tmux-terminal-window kak -c %val{session} -e "%arg{@}"
+define-command -docstring "tabnew [<commands>]: new client in its own window" tabnew -params .. -command-completion %{
+    evaluate-commands %{ set local windowing_placement window; new %arg{@} }
 }
 
-map global user ] ': hsplit<ret>' -docstring "split tmux vertically"
-map global user p ': hsplit<ret>' -docstring "split tmux vertically"
-map global user <\> ': vsplit<ret>' -docstring "split tmux horizontally"
-map global user <plus> ': tabnew<ret>' -docstring "create new tmux window"
+# The wayland/x11 path runs `setsid $termcmd "<whole command line>"`, so the
+# last word has to take a script argument. Point it at the one terminal wrapper
+# from home/terminal.nix instead of letting kakoune probe for
+# alacritty/kitty/foot and fall through to bare konsole. termcmd is declared by
+# the windowing module, so it does not exist until that module has loaded --
+# setting it at kakrc time would be an error.
+hook global ModuleLoaded (wayland|x11) %{
+    set-option global termcmd 'terminal -- sh -c'
+}
+
+map global user ] ': hsplit<ret>' -docstring "new client below this one"
+map global user p ': hsplit<ret>' -docstring "new client below this one"
+map global user <\> ': vsplit<ret>' -docstring "new client beside this one"
+map global user <plus> ': tabnew<ret>' -docstring "new client in its own window"
 
 # git mode
 declare-user-mode git-mode
