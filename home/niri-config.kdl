@@ -327,13 +327,19 @@ window-rule {
     open-floating true
 }
 
-// Kakoune notepad: a gnome-terminal running `kak`, tagged with a distinct
-// title (set via `--title` in the Mod+P bind below) so this rule only
-// matches this one terminal, floating in the bottom-right corner like a
-// slide-out panel. Replaces DMS's built-in notepad, which is its own QML
-// text widget with no way to point it at an external editor.
+// Kakoune notepad: a `terminal` running `kak`, tagged with a distinct title
+// (set via `--title` in toggle-kakoune-notes.sh, reached by the Mod+P bind
+// below) so this rule only matches this one terminal, floating in the
+// bottom-right corner like a slide-out panel. Replaces DMS's built-in
+// notepad, which is its own QML text widget with no way to point it at an
+// external editor.
+//
+// Matched on title alone, with no app-id and no anchors: which emulator
+// `terminal` is comes from home/terminal.nix and is meant to be swappable,
+// and emulators disagree both on app-id and on whether they append their
+// own name to the title (konsole gives "kak-notepad - Konsole").
 window-rule {
-    match app-id=r#"^org\.gnome\.Terminal$"# title="^kak-notepad$"
+    match title="kak-notepad"
     open-floating true
     open-focused true
     default-column-width { fixed 900; }
@@ -376,7 +382,7 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     // Suggested binds for running programs: terminal, app launcher, screen locker.
-    Mod+T hotkey-overlay-title="Open a Terminal: gnome-terminal" { spawn "gnome-terminal"; }
+    Mod+T hotkey-overlay-title="Open a Terminal" { spawn "terminal"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Mod+Alt+L hotkey-overlay-title="Lock the Screen" { spawn "dms" "ipc" "call" "lock" "lock"; }
 

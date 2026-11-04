@@ -14,6 +14,11 @@
 { pkgs, ... }:
 
 {
+  # The Mod+T bind and the kakoune notepad toggle both spawn `terminal`, so
+  # this module brings it along instead of assuming the host also took
+  # home/default.nix. rt-dellpromax-24 takes niri without it.
+  imports = [ ./terminal.nix ];
+
   home.packages = with pkgs; [ wvkbd ];
   xdg.configFile."niri/config.kdl".source = ./niri-config.kdl;
 }

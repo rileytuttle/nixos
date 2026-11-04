@@ -7,6 +7,11 @@
 }:
 
 {
+  # The `terminal` command and the choice of emulator behind it. Here rather
+  # than in core.nix for the same reason as everything else in this file: a
+  # headless host has nothing to open a window with.
+  imports = [ ./terminal.nix ];
+
   home.packages = with pkgs; [
     bitwarden-desktop
     discord

@@ -194,12 +194,20 @@ fi
 
 # --- 6b. narrow it down: DMS-specific, or every nix spawn? ------------------
 #
-# The keybinds in home/niri-config.kdl split cleanly by where the binary
-# lives, which makes them a free bisect:
+# The keybinds in home/niri-config.kdl split cleanly by how much has to be
+# working for each to do anything, which makes them a free bisect:
 #
-#   Mod+T -> gnome-terminal  (apt, /usr/bin)          -- niri itself is fine
-#   Mod+D -> fuzzel          (nix, ~/.nix-profile/bin) -- PATH is fine
+#   Mod+Shift+/ -> show-hotkey-overlay (niri internal, spawns nothing)
+#                                                     -- niri itself is fine
+#   Mod+T -> terminal        (nix, /etc/profiles/...)  -- PATH is fine
 #   Mod+Space -> dms ipc ... (nix, AND needs live DMS) -- DMS is fine
+#
+# The first rung used to be Mod+T back when it spawned apt's gnome-terminal
+# from /usr/bin, which tested niri without testing nix's PATH at all. Mod+T
+# now goes through `terminal` (home/terminal.nix, a nix binary like every
+# other spawn here), so the overlay bind took its place: it needs no binary
+# whatsoever, which makes it a cleaner "is niri even reading this config"
+# probe than a foreign-distro package ever was.
 #
 # Note that Mod+Space does not launch anything: `dms ipc spotlight toggle`
 # only talks to an already-running DMS. There is no separate spotlight to
@@ -209,13 +217,13 @@ head_ "6b. bisect with the keybinds"
 
 note "Press these in niri, in order, and stop at the first that does nothing:"
 note ""
-note "  Mod+T      gnome-terminal   apt binary in /usr/bin"
-note "  Mod+D      fuzzel           nix binary in ~/.nix-profile/bin"
-note "  Mod+Space  dms spotlight    IPC into the running DMS process"
+note "  Mod+Shift+/  hotkey overlay   niri internal, spawns no binary"
+note "  Mod+T        terminal         nix binary (see home/terminal.nix)"
+note "  Mod+Space    dms spotlight    IPC into the running DMS process"
 note ""
-note "  all three dead      -> niri is not reading this config (section 7)"
-note "  only Mod+T works    -> PATH problem (section 4); nix spawns can't resolve"
-note "  T+D work, Space not -> PATH is fine, DMS itself is not running (section 6)"
+note "  all three dead        -> niri is not reading this config (section 7)"
+note "  only the overlay      -> PATH problem (section 4); nix spawns can't resolve"
+note "  overlay+T, Space not  -> PATH is fine, DMS itself is not running (section 6)"
 note ""
 note "Mod+Space is NOT a separate program. It toggles a panel inside the DMS"
 note "process, so a missing bar and a dead launcher have the same root cause:"

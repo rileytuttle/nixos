@@ -35,12 +35,12 @@ if session_exists; then
         # Session exists but no window found - this shouldn't happen normally,
         # but start a new window just in case
         echo "Session exists but no window found, starting new window..."
-        gnome-terminal --title="kak-notepad" -- kak -s "$SESSION_NAME" "${NOTES_DIR}/scratch"
+        terminal --title="kak-notepad" -- kak -s "$SESSION_NAME" "${NOTES_DIR}/scratch"
     fi
 else
     # No session, start a new one
     echo "Starting new Kakoune session in $NOTES_DIR"
-    gnome-terminal --title="kak-notepad" -- kak -s "$SESSION_NAME" "${NOTES_DIR}/scratch"
+    terminal --title="kak-notepad" -- kak -s "$SESSION_NAME" "${NOTES_DIR}/scratch"
 fi
 
 echo "Note: The Kakoune instance will persist in the background and can be toggled with Mod+P"
