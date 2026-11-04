@@ -129,6 +129,7 @@
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
         ./home/helix.nix
+        ./home/balena.nix
       ];
     };
   };
