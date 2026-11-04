@@ -102,6 +102,13 @@
   hardware.bluetooth.enable = true;
   # services.blueman.enable = true;
 
+  # Thunderbolt device authorization. The domain runs at security=user, so the
+  # PCIe tunnel (and with it the dock's USB hub) stays down until something
+  # authorizes the device -- DP tunneling comes up regardless, which is why a
+  # dock looks "half working". boltd does the authorizing and remembers
+  # enrolled docks; it also pulls in the plasma-thunderbolt KCM.
+  services.hardware.bolt.enable = true;
+
   # Screen brightness control
   users.users.rileytuttle.extraGroups = [
     "video" # needed for light
