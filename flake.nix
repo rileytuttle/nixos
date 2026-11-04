@@ -4,6 +4,32 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
 
+    # Kakoune only -- see modules/kakoune.nix. Same branch as nixpkgs above,
+    # locked separately so `nix flake update nixpkgs-kakoune` can chase an
+    # editor release without rebuilding the world. Kakoune ships monthly-ish
+    # and the kakrc depends on what its rc/ directory provides (the niri
+    # windowing module, for one), so it is worth tracking ahead of the system.
+    # Fold this back into nixpkgs whenever the main lock catches up.
+    nixpkgs-kakoune.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+
+    # Kakoune plugins, built into the editor by modules/kakoune.nix instead of
+    # cloned at startup by plug.kak. `flake = false` means "just fetch the
+    # source" -- there is no flake in these repos. Inputs rather than pinned
+    # revs with hashes so `nix flake update` refreshes them like anything else;
+    # nixpkgs' own kakounePlugins.fzf-kak is stuck at 2022-10-11.
+    fzf-kak = {
+      url = "github:andreyorst/fzf.kak";
+      flake = false;
+    };
+    openscad-kak = {
+      url = "github:mayjs/openscad.kak";
+      flake = false;
+    };
+    kakoune-sudo-write = {
+      url = "github:occivink/kakoune-sudo-write";
+      flake = false;
+    };
+
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";  # reuse the same nixpkgs, don't pull a second copy

@@ -13,11 +13,70 @@ map global normal q b
 map global normal Q B
 map global normal <a-q> <a-b>
 map global normal <a-Q> <a-B>
-map global normal x X
-map global normal X <a-X>
 map global normal , <space>
 map global normal <space> ,
-map global normal / /<a-n>
+
+# Line selection, the way it worked before upstream dropped select_line.
+# These used to be two C++ patches in a kakoune fork; they are plain config
+# now, so nix can install the stock editor. Today's builtin `x` only extends
+# a selection to whole lines and is idempotent, so holding it goes nowhere.
+#
+#   x  select the cursor's line; already on a whole line -> take the next one
+#   X  same, but grow the selection instead of replacing it
+#
+# Arriving on an empty line the selection IS already the whole line, so the
+# next `x` moves on -- which is what you want. `j` is a no-op on the last
+# line, so `x` stops at the end of the buffer.
+#
+# $1 selects the starting line, $2 advances one line. execute-keys ignores
+# user mappings by default, so the `x` in there is the builtin, not this
+# command -- no recursion.
+define-command -hidden rt-line-impl -params 2 %{
+    evaluate-commands %sh{
+        nl='
+'
+        count=${kak_count:-0}
+        [ "$count" -lt 1 ] && count=1
+        a=${kak_selection_desc%,*}
+        c=${kak_selection_desc#*,}
+        al=${a%.*}
+        ac=${a#*.}
+        cl=${c%.*}
+        cc=${c#*.}
+        # leftmost end of the selection, whichever way it points
+        if [ "$al" -lt "$cl" ] || { [ "$al" -eq "$cl" ] && [ "$ac" -le "$cc" ]; }; then
+            start_col=$ac
+        else
+            start_col=$cc
+        fi
+        # Not on whole lines yet? Select the current line and spend one of the
+        # count on it. "Whole lines" means starting at column 1 and running
+        # through the trailing newline -- the column test is what keeps `gl`
+        # followed by `x` on the current line instead of skipping it.
+        if [ "$start_col" != 1 ] || [ "${kak_selection%"$nl"}" = "$kak_selection" ]; then
+            printf "execute-keys '%s'\n" "$1"
+            count=$((count - 1))
+        fi
+        if [ "$count" -gt 0 ]; then
+            printf "execute-keys '%s'\n" "$count$2"
+        fi
+    }
+}
+define-command -hidden rt-select-line %{ rt-line-impl ';x' 'jx' }
+define-command -hidden rt-extend-line %{ rt-line-impl 'x' 'Jx' }
+
+map global normal x ': rt-select-line<ret>'
+map global normal X ': rt-extend-line<ret>'
+
+# Pre-fill the search prompt with the selection, so <ret> on an empty prompt
+# searches what's selected rather than repeating the last search. The other
+# half of what the fork used to patch into regex_prompt.
+#
+# The register is written before the prompt opens, so escaping out of the
+# prompt still leaves the last search set to the selection -- the fork only
+# wrote it on validate. Use <a-*> instead if a selection ever needs escaping
+# as a regex; it quotes the metacharacters.
+map global normal / ': set-register slash %val{selection}<ret>/'
 
 # buffer section
 declare-user-mode buffers
@@ -65,10 +124,8 @@ define-command my-comment-line -docstring '(un)comment selected lines using line
     }
 }
 
-# map global normal  ': comment-line<ret>' -docstring "<c-/> to comment/uncomment selection" # mapping <c-/> but can't type that directly so I typed <c-v><c-/> and that worked
-# map global normal <c-/> ': comment-line<ret>' -docstring "<c-/> to comment/uncomment selection" # doesnt work
-map global normal <c-_> ': my-comment-line<ret>' -docstring "<c-/> to comment/uncomment selection" # type ctrl-/ but map unit separator. they have the same keycode or some junk
-# map global user / ': comment-line<ret>' -docstring "[un]comment selection. backup for when <c-/> is broken"
+# <c-/> can't be mapped by name: the terminal sends the same code as <c-_>.
+map global normal <c-_> ': my-comment-line<ret>' -docstring "<c-/> to comment/uncomment selection"
 
 declare-user-mode comments
 map global user / ': enter-user-mode comments<ret>' -docstring "enter comments mode"
@@ -90,43 +147,6 @@ define-command my-grep -docstring 'grep through all files in vcs' %{
     }
 }
 
-# not done yet. to finish:
-# 1. go to grep.kak
-# 2. copy and past to grepu.kak
-# 3. change the line that uses grep to use grepu
-# 4. change the lines that jump to specific file and line to instead just go to first line of file or something
-# 5. make sure that we are grepping into the same temp buffer so that we can still use ctrl-n and ctrl-p to go the next and previous matches
-
-define-command -params .. -docstring "multigrep output to buffer" grepu %{
-    evaluate-commands %sh{
-        if [ $# -eq 0 ]; then
-            set -- "${kak_selection}"
-        fi
-
-        output=$(mktemp -d "${TMPDIR:-/tmp}"/kak-grep.XXXXXXXX)/fifo
-        mkfifo ${output}
-        # ( grepu "$@" | tr -d '\r' > ${output} 2>&1 & ) > /dev/null 2>&1 < /dev/null
-        # ( ls /home/rtuttle/Configs/scripts | tr -d '\r' > ${output} 2>&1 & ) > /dev/null 2>&1 < /dev/null
-        # ( $@ | tr -d '\r' > ${output} 2>&1 & ) > /dev/null 2>&1 < /dev/null
-        # ( ${kak_opt_grepcmd} "$@" | tr -d '\r' > ${output} 2>&1 & ) > /dev/null 2>&1 < /dev/null
-        ( python /home/rtuttle/Configs/scripts/grepU.py "$@" | tr -d '\r' > ${output} 2>&1 & ) > /dev/null 2>&1 < /dev/null
-
-        printf %s\\n "evaluate-commands -try-client '$kak_opt_toolsclient' %{
-            edit! -fifo ${output} *grep*
-            set-option buffer filetype grep
-            set-option buffer grep_current_line 0
-            hook -always -once buffer BufCloseFifo .* %{ nop %sh{ rm -r $(dirname ${output}) } }
-        }"
-    }
-}
-complete-command grepu file
-
-define-command grepu-wrapper %{
-    prompt grepu: %{
-        grepu "%val{text}"
-    }
-}
-
 declare-user-mode grep-mode
 map global user f ': enter-user-mode grep-mode<ret>' -docstring 'find with grep'
 set-option global grepcmd 'rg -n --column --smart-case'
@@ -136,7 +156,6 @@ map global normal <c-f> ': my-grep<ret>'
 map global normal <c-F> ': fzf-grep<ret>' # may need to clear terminal shortcut. still doesn't work because of some shortcut or something
 map global grep-mode g ': my-grep<ret>' -docstring "grep through all files"
 map global grep-mode G ': fzf-grep<ret>' -docstring "fuzzy grep through files"
-map global grep-mode u ': grepu-wrapper<ret>' -docstring "multigrep"
 
 # find/replace
 define-command sarr \
@@ -159,8 +178,6 @@ add-highlighter global/ wrap
 hook global InsertChar \t %{ execute-keys -draft -itersel h@ }
 set-option global tabstop 2
 set-option global indentwidth 2
-
-map global normal = ' :prompt math: %{execute-keys "a%val{text}<lt>esc>|bc -l<lt>ret>"}<ret>' # not currently working
 
 declare-user-mode clipboard
 map global user c ": enter-user-mode clipboard<ret>" -docstring 'send things to clipboard'
@@ -225,8 +242,12 @@ map global user <\> ': vsplit<ret>' -docstring "new client beside this one"
 map global user <plus> ': tabnew<ret>' -docstring "new client in its own window"
 
 # git mode
+# `git blame` toggles now, so `b` alone is usually enough. `h` still works --
+# hide-blame is undocumented upstream (gone from the subcommand list and the
+# completions) but the implementation is still there -- so it is kept, with the
+# caveat that it is the one that could disappear.
 declare-user-mode git-mode
-map global git-mode b ': git blame<ret>' -docstring 'git blame'
+map global git-mode b ': git blame<ret>' -docstring 'toggle git blame'
 map global git-mode h ': git hide-blame<ret>' -docstring 'git hide-blame'
 map global user g ': enter-user-mode git-mode<ret>' -docstring 'enter git mode'
 
@@ -295,17 +316,15 @@ map global tabcontrol t ': convert-spaces-to-tabs<ret>' -docstring 'convert sele
 map global tabcontrol r ': remove-trailing-whitespace<ret>' -docstring 'remove trailing whitespaces'
 map global user t ': enter-user-mode tabcontrol<ret>' -docstring "tabulation utils"
 
-evaluate-commands %sh{
-    plugins="$kak_config/plugins"
-    mkdir -p "$plugins"
-    [ ! -e "$plugins/plug.kak" ] && \
-        git clone -q https://github.com/andreyorst/plug.kak.git "$plugins/plug.kak"
-    printf "%s\n" "source '$plugins/plug.kak/rc/plug.kak'"
-}
+# plugins
+#
+# There is no plugin manager here. modules/kakoune.nix builds fzf.kak,
+# openscad.kak and kakoune-sudo-write into the editor, where kakoune autoloads
+# them -- so this file only carries their settings, not their installation.
+# plug.kak used to `git clone` into ~/.config/kak/plugins on first start, which
+# meant the editor needed the network to come up correctly and new machines
+# needed a manual `:plug-install`. `nix flake update` is what bumps them now.
 
-plug "andreyorst/plug.kak" noload
-
-plug "occivink/kakoune-sudo-write"
 define-command -docstring "sudo-write alias" W %{
     sudo-write
 }
@@ -315,12 +334,19 @@ define-command -docstring "sudo-write quit alias" Wq %{
     quit
 }
 
-plug "rileytuttle/fzf.kak" config %{
-    map global normal <c-p> ': fzf-mode<ret>' -docstring 'enter fzf-mode'
-} defer "fzf" %{
+# fzf.kak. Its options are declared by the modules that use them, so they can
+# only be set once those have loaded -- which is exactly what plug.kak's
+# `defer <module>` expanded to (see the ModuleLoaded line in its plug.sh).
+map global normal <c-p> ': fzf-mode<ret>' -docstring 'enter fzf-mode'
+hook global ModuleLoaded fzf %{
     set-option global fzf_default_opts '--layout=reverse'
     set-option global fzf_use_main_selection false
-} defer "fzf-file" %{
+    # A height with a `%' makes fzf.kak pick `tmux split-window -p', which tmux
+    # removed. A plain line count takes the `-l' path and works. This is the
+    # whole reason there used to be a fzf.kak fork.
+    set-option global fzf_tmux_height 25
+}
+hook global ModuleLoaded fzf-file %{
     set-option global fzf_file_command 'find'
 }
 
@@ -334,23 +360,10 @@ define-command -docstring "echo the present working directory" whereami %{
     }
 }
 
-plug "mayjs/openscad.kak" config %{
-    hook global BufSetOption filetype=(openscad) %{
-        set-option buffer comment_line '//'
-        set-option buffer comment_block_begin '/*'
-        set-option buffer comment_block_end '*/'
-    }
+# openscad.kak gives the filetype and highlighting; it doesn't set the comment
+# strings, so do that here.
+hook global BufSetOption filetype=(openscad) %{
+    set-option buffer comment_line '//'
+    set-option buffer comment_block_begin '/*'
+    set-option buffer comment_block_end '*/'
 }
-
-# instructions for compiling kakoune from source
-# needs a c++20 compliant compiler currently
-# install libstdc++-10-dev, gcc-10, g++-10
-# >> sudo apt install libstdc++-10-dev gcc-10 g++-10
-# >> cd kakoune/src
-# >> export CXX=g++-10
-# >> make
-
-# instructions for linking this file to the required one in ~/.config/kak/kakrc
-# create a symlink
-# ln -s ~/Configs/.config/kak/kakrc ~/.config/kak/kakrc
-# that should keep the two files in sync
