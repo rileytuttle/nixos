@@ -38,13 +38,28 @@ The configuration is organized as follows:
 │   ├── deskflow.nix       # DeskFlow keyboard/mouse sharing
 │   ├── local-nginx.nix    # Local nginx web server
 │   └── android-tools.nix  # Android development tools
+├── dotfiles/              # Plain config files delivered by home-manager
+│   ├── kakrc              # Kakoune config
+│   ├── tmux.conf          # tmux config
+│   └── kanataconfig.kbd   # Kanata layout (consumed by modules/kanata.nix)
 └── home/                  # Home manager configurations
-    ├── default.nix        # Base home configuration
+    ├── default.nix        # Personal-machine profile: identity + the layers below
+    ├── core.nix           # Portable user env (shell, git, CLI). Must not assume NixOS
+    ├── apps-personal.nix  # GUI applications for personal machines
+    ├── git-scripts.sh     # Shell functions (gb/gbd/gco), sourced by store path
+    ├── auto-completes.sh  # Bash completions, sourced by store path
     ├── niri.nix           # Niri home settings, shared by fw12 + rt-dellpromax-24
     ├── niri-config.kdl    # The niri config itself, shared between hosts
     ├── niri-generic-linux.nix     # Non-NixOS session glue (rt-dellpromax-24)
+    ├── balena.nix         # balena-cli + balena-plus wrapper (rt-dellpromax-24)
     └── dank-material-shell.nix  # Dank Material Shell theme
 ```
+
+Dotfiles live in this repo, not in a separate one. They used to come from
+`github:rileytuttle/Configs` as a `flake = false` input, which meant every
+tweak cost a commit, a push and a `nix flake update` before it could be built
+-- so the pin drifted four months stale and bits of config leaked back out to
+`$HOME` to get around it. One repo, edit then rebuild.
 
 ## Building the Configuration
 
@@ -74,6 +89,21 @@ This will:
 1. Build the system configuration for fw12
 2. Switch to the new configuration
 3. Reboot if necessary (this may take a while depending on your hardware)
+
+### Checking and formatting
+
+```bash
+nix flake check   # builds every host: fw12, elitedesk, rt-dellpromax-24
+nix fmt           # nixfmt (RFC 166 style) over the repo
+```
+
+`nix flake check` exists because `hosts/desktop.nix` sat broken for months
+without anything noticing -- it imported a hardware scan that had never been
+committed. A half-finished host fails here now instead of silently.
+
+Note that flakes only see **git-tracked** files: a new `.nix` file that is
+still untracked is invisible to the build and fails with a confusing "does not
+exist in Git repository" error. `git add` it first.
 
 ### Building in Dry Run Mode
 
@@ -241,7 +271,10 @@ The fw12 configuration includes several host-specific features:
 
 - **Hardware Support**: Uses `nixos-hardware` module for Framework laptop support
 - **Power Management**: TLP enabled for better battery life, with power-profiles-daemon disabled
-- **Window Manager**: Supports both KDE Plasma and Niri window manager (with Niri being the default)
+- **Window Manager**: Both KDE Plasma and Niri are available as login sessions.
+  Plasma is the default -- `modules/common.nix` sets
+  `services.displayManager.defaultSession = lib.mkForce "plasma"`, and
+  `programs.niri.enable` just registers niri as a selectable extra.
 - **Bluetooth**: Full Bluetooth support enabled
 - **WiFi**: Managed by NetworkManager (enabled via common module)
 - **Touchpad**: Libinput configuration for touchpad support

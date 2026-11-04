@@ -8,10 +8,6 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";  # reuse the same nixpkgs, don't pull a second copy
     };
-    dotfiles = {
-      url = "github:rileytuttle/Configs";  # or wherever your dotfiles repo is
-      flake = false;  # it's not a flake, just a source repo
-    };
     nixos-hardware.url = "github:NixOS/nixos-hardware";
 
     nix-colors = {
@@ -135,6 +131,25 @@
       '';
     };
 
+    # The scripts carried over from the old Configs repo. Exposed as packages
+    # (not just added to home.packages) so they can be reached from any
+    # machine with nix: `nix run github:rileytuttle/nixos#shic`.
+    packages.${system} = import ./pkgs/scripts.nix { inherit pkgs; };
+
+    # `nix flake check` -- builds every host in one go. This exists because
+    # hosts/desktop.nix sat broken for months without anything noticing: it
+    # imported a hardware scan that was never committed. A half-finished host
+    # now fails here instead of silently.
+    checks.${system} = {
+      fw12 = self.nixosConfigurations.fw12.config.system.build.toplevel;
+      elitedesk = self.nixosConfigurations.elitedesk.config.system.build.toplevel;
+      rt-dellpromax-24 = self.homeConfigurations.rt-dellpromax-24.activationPackage;
+    };
+
+    # `nix fmt` on this repo. nixfmt 1.4 is the RFC 166 style; the package
+    # formerly known as nixfmt-rfc-style is now just `nixfmt`.
+    formatter.${system} = pkgs.nixfmt;
+
     nixosConfigurations = {
 
       fw12 = nixpkgs.lib.nixosSystem {
@@ -195,20 +210,6 @@
         ];
       };
 
-      desktop = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        modules = [
-          ./hosts/desktop.nix
-          ./modules/common.nix
-          home-manager.nixosModules.home-manager
-          {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.rileytuttle = import ./home/default.nix;
-          }
-        ];
-      };
-
     };
 
     # rt-dellpromax-24 is Ubuntu with nix as a plain package manager, not
@@ -246,7 +247,6 @@
         ./home/niri.nix
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
-        ./home/helix.nix
         ./home/balena.nix
       ];
     };

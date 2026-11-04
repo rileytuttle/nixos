@@ -55,22 +55,6 @@
         "type": "github"
       }
     },
-    "dotfiles": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1780916788,
-        "narHash": "sha256-qICWB4Lf17IvPym4Ji+SkrEe4+psGcbTPqG+IB7oPMs=",
-        "owner": "rileytuttle",
-        "repo": "Configs",
-        "rev": "6148b13718e094bf0bd9cf1e9bfd8812befd3f74",
-        "type": "github"
-      },
-      "original": {
-        "owner": "rileytuttle",
-        "repo": "Configs",
-        "type": "github"
-      }
-    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -231,7 +215,6 @@
     "root": {
       "inputs": {
         "dms": "dms",
-        "dotfiles": "dotfiles",
         "home-manager": "home-manager",
         "nix-colors": "nix-colors",
         "nixgl": "nixgl",

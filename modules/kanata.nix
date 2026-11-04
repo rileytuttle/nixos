@@ -1,4 +1,4 @@
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, ... }:
 
 {
   environment.systemPackages = with pkgs; [
@@ -29,7 +29,7 @@
         devices = [
           "/dev/input/by-path/platform-i8042-serio-0-event-kbd"
         ];
-        configFile = "${inputs.dotfiles}/dotfiles/kanataconfig.kbd";
+        configFile = ../dotfiles/kanataconfig.kbd;
       };
     };
   };

@@ -1,0 +1,390 @@
+#!/usr/bin/env python3
+"""
+comic2cbz -- unpack a scene comic release into a ready-to-read .cbz
+
+Handles the usual nesting in one shot:
+    N x .zip "disks"  ->  split RAR4 set (.rar/.r00..)  ->  PDF | CBR | CBZ | images
+
+A one-image-per-page PDF is repackaged losslessly: the raw JPEG (DCTDecode)
+streams are copied straight into the zip, so there is no decode/re-encode and
+no quality loss.
+
+Pure Python stdlib -- no unzip, unrar, or poppler required, provided the RAR
+uses the "store" method (standard for comic releases, since JPEGs don't
+compress). If a release is genuinely compressed, the script says so and tells
+you the nix command to fall back to.
+
+Usage:
+    comic2cbz RELEASE_DIR [MORE_DIRS...] [-o OUTDIR]
+    comic2cbz book.pdf [-o OUTDIR]
+
+Options:
+    -o, --outdir DIR   where to write the .cbz (default: current directory)
+    --keep-pdf         also keep the intermediate PDF next to the .cbz
+    --comicinfo        embed ComicInfo.xml (series/title/year) for Komga/Kavita
+    --list             inspect only: show what's inside, write nothing
+    -q, --quiet        only print the final output path
+"""
+import argparse, glob, os, re, shutil, struct, tempfile, zipfile
+from xml.sax.saxutils import escape
+
+IMG_EXT = ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.jp2')
+
+# ---------------------------------------------------------------- RAR4 (store)
+
+def rar_volumes(d):
+    """Ordered volume list for a multi-part RAR4 set in directory d."""
+    parts = sorted(glob.glob(os.path.join(d, '*.part[0-9]*.rar')))
+    if parts:
+        return sorted(parts, key=lambda p: int(re.search(r'\.part(\d+)\.rar$', p).group(1)))
+    rars = sorted(glob.glob(os.path.join(d, '*.rar')))
+    if not rars:
+        return []
+    base = rars[0][:-4]
+    rest = sorted(glob.glob(base + '.r[0-9][0-9]')) + \
+           sorted(glob.glob(base + '.r[0-9][0-9][0-9]'))
+    return [rars[0]] + rest
+
+def rar_blocks(path):
+    """Yield (htype, flags, header, data_offset, data_size) for each RAR4 block."""
+    size = os.path.getsize(path)
+    with open(path, 'rb') as f:
+        if f.read(7)[:4] != b'Rar!':
+            raise SystemExit(f"{path}: not a RAR4 archive (RAR5 needs real unrar; see --help)")
+        off = 7
+        while off < size:
+            f.seek(off)
+            head = f.read(7)
+            if len(head) < 7:
+                break
+            _crc, htype, flags, hsize = struct.unpack('<HBHH', head)
+            if hsize < 7:
+                break
+            f.seek(off)
+            hdr = f.read(hsize)
+            add = 0
+            if flags & 0x8000:
+                if len(hdr) < 11:
+                    break
+                add = struct.unpack_from('<I', hdr, 7)[0]
+            yield htype, flags, hdr, off + hsize, add
+            off += hsize + add
+
+def rar_file_header(hdr, flags):
+    packsz, unpsz, _os, _crc, _time, _ver, method, namelen, _attr = \
+        struct.unpack_from('<IIBIIBBHI', hdr, 7)
+    pos = 32
+    if flags & 0x100:                      # 64-bit sizes
+        hp, hu = struct.unpack_from('<II', hdr, pos)
+        packsz |= hp << 32
+        unpsz |= hu << 32
+        pos += 8
+    raw = hdr[pos:pos + namelen]
+    name = raw.split(b'\0')[0].decode('utf-8', 'replace') if flags & 0x200 \
+        else raw.decode('cp437', 'replace')
+    return name, packsz, unpsz, method
+
+def rar_extract(src_dir, out_dir, log):
+    """Extract a store-method multi-volume RAR4 set. Returns list of paths."""
+    vols = rar_volumes(src_dir)
+    if not vols:
+        return []
+    log(f"  rar: {len(vols)} volume(s), {os.path.basename(vols[0])} ...")
+    pieces, order, meta = {}, [], {}
+    for v in vols:
+        for htype, flags, hdr, doff, _ in rar_blocks(v):
+            if htype != 0x74:              # file header
+                continue
+            name, packsz, unpsz, method = rar_file_header(hdr, flags)
+            name = name.replace('\\', '/').lstrip('/')
+            if name not in pieces:
+                pieces[name], meta[name] = [], (unpsz, method)
+                order.append(name)
+            pieces[name].append((v, doff, packsz))
+    bad = [n for n in order if meta[n][1] != 0x30]
+    if bad:
+        raise SystemExit(
+            "  this release is compressed, not stored -- pure Python can't inflate it.\n"
+            "  Fall back to:  nix shell nixpkgs#unrar -c unrar x '%s'\n"
+            "  (unrar is unfree; prefix NIXPKGS_ALLOW_UNFREE=1 and add --impure if nix balks)"
+            % vols[0])
+    out = []
+    for n in order:
+        dest = os.path.join(out_dir, os.path.basename(n))
+        written = 0
+        with open(dest, 'wb') as o:
+            for path, doff, dsize in pieces[n]:
+                with open(path, 'rb') as f:
+                    f.seek(doff)
+                    left = dsize
+                    while left:
+                        chunk = f.read(min(1 << 22, left))
+                        if not chunk:
+                            break
+                        o.write(chunk)
+                        left -= len(chunk)
+                        written += len(chunk)
+        exp = meta[n][0]
+        if written != exp:
+            log(f"  WARNING {n}: got {written:,} bytes, header said {exp:,} (missing a volume?)")
+        else:
+            log(f"  rar -> {os.path.basename(n)} ({written:,} bytes, intact)")
+        out.append(dest)
+    return out
+
+# ------------------------------------------------------------------ PDF -> CBZ
+
+class PDF:
+    """Minimal PDF reader: just enough to pull one full-page image per page."""
+
+    def __init__(self, path):
+        self.data = open(path, 'rb').read()
+        self.objs = {int(m.group(1)): m.end() for m in
+                     re.finditer(rb'(?:^|[\r\n\s])(\d+)\s+(\d+)\s+obj\b', self.data)}
+
+    def raw(self, num):
+        start = self.objs[num]
+        return self.data[start:self.data.find(b'endobj', start)]
+
+    def num(self, body, key):
+        m = re.search(rb'/' + key + rb'\s+(\d+)(?:\s+(\d+)\s+R)?', body)
+        if not m:
+            return None
+        if m.group(2) is not None:                     # indirect reference
+            m2 = re.search(rb'(\d+)', self.raw(int(m.group(1))))
+            return int(m2.group(1)) if m2 else None
+        return int(m.group(1))
+
+    def pages(self):
+        m = re.search(rb'/Root\s+(\d+)\s+0\s+R', self.data)
+        order = []
+        if m:
+            pm = re.search(rb'/Pages\s+(\d+)\s+0\s+R', self.raw(int(m.group(1))))
+            if pm:
+                self._walk(int(pm.group(1)), order, set())
+        if not order:                                  # fallback: object order
+            order = [n for n in sorted(self.objs)
+                     if re.search(rb'/Type\s*/Page[^s]', self.raw(n))]
+        return order
+
+    def _walk(self, node, order, seen):
+        if node in seen:
+            return
+        seen.add(node)
+        body = self.raw(node)
+        if re.search(rb'/Type\s*/Page[^s]', body):
+            order.append(node)
+            return
+        km = re.search(rb'/Kids\s*\[(.*?)\]', body, re.S)
+        if km:
+            for kid in re.findall(rb'(\d+)\s+0\s+R', km.group(1)):
+                self._walk(int(kid), order, seen)
+
+    def page_image(self, page):
+        """(bytes, w, h, ext) of the page's image XObject, raw and undecoded."""
+        body = self.raw(page)
+        xo = re.search(rb'/XObject\s*(\d+)\s+0\s+R', body)
+        if xo:
+            res = self.raw(int(xo.group(1)))
+        else:
+            rm = re.search(rb'/Resources\s+(\d+)\s+0\s+R', body)
+            res = self.raw(int(rm.group(1))) if rm else body
+        xm = re.search(rb'/XObject\s*<<(.*?)>>', res, re.S)
+        for r in re.findall(rb'/\w+\s+(\d+)\s+0\s+R', xm.group(1) if xm else res):
+            obj = int(r)
+            ob = self.raw(obj)
+            if b'/Image' not in ob:
+                continue
+            kind = 'jpg' if b'DCTDecode' in ob else 'jp2' if b'JPXDecode' in ob else None
+            if not kind:
+                continue
+            length = self.num(ob, b'Length')
+            s = self.data.find(b'stream', self.objs[obj]) + 6
+            if self.data[s:s + 2] == b'\r\n':
+                s += 2
+            elif self.data[s:s + 1] in (b'\n', b'\r'):
+                s += 1
+            blob = self.data[s:s + length] if length is not None else \
+                self.data[s:self.data.find(b'endstream', s)].rstrip(b'\r\n')
+            return blob, self.num(ob, b'Width'), self.num(ob, b'Height'), kind
+        return None, None, None, None
+
+def pdf_to_cbz(src, dst, log, info=None):
+    pdf = PDF(src)
+    pages = pdf.pages()
+    if not pages:
+        raise SystemExit(f"  {src}: no pages found")
+    ok, failed = 0, []
+    with zipfile.ZipFile(dst, 'w', zipfile.ZIP_STORED) as z:
+        for i, p in enumerate(pages, 1):
+            blob, _w, _h, kind = pdf.page_image(p)
+            if not blob or (kind == 'jpg' and not blob.startswith(b'\xff\xd8')):
+                failed.append(i)
+                continue
+            z.writestr(f'page_{i:03d}.{kind}', blob)
+            ok += 1
+        if info:
+            z.writestr('ComicInfo.xml', comicinfo(info, ok))
+    log(f"  pdf -> cbz: {ok}/{len(pages)} pages extracted losslessly")
+    if failed:
+        log(f"  WARNING pages with no extractable image: {failed[:20]}"
+            f"{' ...' if len(failed) > 20 else ''}")
+    return ok
+
+# ------------------------------------------------------------- CBR/CBZ/images
+
+def images_to_cbz(paths, dst, log, info=None):
+    imgs = sorted(p for p in paths if p.lower().endswith(IMG_EXT))
+    if not imgs:
+        return 0
+    with zipfile.ZipFile(dst, 'w', zipfile.ZIP_STORED) as z:
+        for i, p in enumerate(imgs, 1):
+            z.write(p, f'page_{i:03d}{os.path.splitext(p)[1].lower()}')
+        if info:
+            z.writestr('ComicInfo.xml', comicinfo(info, len(imgs)))
+    log(f"  images -> cbz: {len(imgs)} pages")
+    return len(imgs)
+
+# ------------------------------------------------------------------- metadata
+
+def read_nfo(d):
+    """Pull Title/Issue/Year/Publisher out of a scene .nfo, if present."""
+    info = {}
+    for nfo in glob.glob(os.path.join(d, '**', '*.nfo'), recursive=True):
+        txt = open(nfo, 'rb').read().decode('cp437', 'replace')
+        for key in ('Publisher', 'Title', 'Issue', 'Year'):
+            m = re.search(rf'^\s*{key}\s*:\s*(.+?)\s*$', txt, re.M)
+            if m and key not in info:
+                info[key] = m.group(1).strip()
+        if info:
+            break
+    return info
+
+def nice_name(d, info):
+    """'Absolute Batman Vol 02 - Abomination (2026)' from nfo, else dir name."""
+    if info.get('Title'):
+        name = info['Title']
+        if info.get('Issue'):
+            name += ' ' + info['Issue'].replace(':', ' -')
+        if info.get('Year'):
+            name += f" ({info['Year']})"
+        return re.sub(r'\s+', ' ', name).strip()
+    base = os.path.basename(os.path.abspath(d))
+    base = re.sub(r'\.(HYBRID|COMIC|eBook|RETAIL|CBR|CBZ|PDF)\b.*$', '', base, flags=re.I)
+    return re.sub(r'[._]+', ' ', base).strip()
+
+def comicinfo(info, pages):
+    f = lambda k: escape(info.get(k, ''))
+    year = info.get('Year', '')
+    return ('<?xml version="1.0" encoding="utf-8"?>\n'
+            '<ComicInfo xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+            f'  <Series>{f("Title")}</Series>\n'
+            f'  <Title>{f("Issue")}</Title>\n'
+            f'  <Publisher>{f("Publisher")}</Publisher>\n'
+            + (f'  <Year>{escape(year)}</Year>\n' if year.isdigit() else '') +
+            f'  <PageCount>{pages}</PageCount>\n'
+            '  <Manga>No</Manga>\n'
+            '</ComicInfo>\n')
+
+# ----------------------------------------------------------------- the pipeline
+
+def unwrap_zips(d, tmp, log):
+    """Scene releases wrap each RAR volume in its own .zip. Unwrap them."""
+    zips = sorted(glob.glob(os.path.join(d, '**', '*.zip'), recursive=True))
+    found = False
+    for z in zips:
+        try:
+            with zipfile.ZipFile(z) as f:
+                for i in f.infolist():
+                    if i.filename.lower().endswith(('.nfo', '.diz')):
+                        continue
+                    with f.open(i) as s, open(os.path.join(tmp, os.path.basename(i.filename)), 'wb') as o:
+                        shutil.copyfileobj(s, o, 1 << 20)
+                    found = True
+        except zipfile.BadZipFile:
+            log(f"  skipping unreadable zip: {os.path.basename(z)}")
+    if found:
+        log(f"  unwrapped {len(zips)} zip disk(s)")
+    return found
+
+def process(target, outdir, args, log):
+    # A plain PDF given directly.
+    if os.path.isfile(target) and target.lower().endswith('.pdf'):
+        name = re.sub(r'\.pdf$', '', os.path.basename(target), flags=re.I)
+        dst = os.path.join(outdir, name + '.cbz')
+        pdf_to_cbz(target, dst, log)
+        return dst
+    if not os.path.isdir(target):
+        raise SystemExit(f"{target}: not a directory or .pdf")
+
+    info = read_nfo(target)
+    name = nice_name(target, info)
+    log(f"{os.path.basename(os.path.abspath(target))}\n  -> \"{name}\"")
+
+    with tempfile.TemporaryDirectory(prefix='comic2cbz-') as tmp:
+        work = tmp
+        if not unwrap_zips(target, tmp, log):
+            work = target                       # rar parts (or payload) sit directly here
+
+        payload = rar_extract(work, tmp, log)
+        if not payload:                         # no rar: look for a direct payload
+            payload = [p for p in
+                       glob.glob(os.path.join(work, '**', '*'), recursive=True)
+                       if os.path.isfile(p)]
+
+        pdfs = [p for p in payload if p.lower().endswith('.pdf')]
+        cbzs = [p for p in payload if p.lower().endswith(('.cbz',))]
+        cbrs = [p for p in payload if p.lower().endswith(('.cbr',))]
+        meta = info if args.comicinfo else None
+
+        if args.list:
+            for p in sorted(payload):
+                log(f"  contains: {os.path.basename(p)} ({os.path.getsize(p):,} bytes)")
+            return None
+
+        dst = os.path.join(outdir, name + '.cbz')
+        if pdfs:
+            pdf_to_cbz(pdfs[0], dst, log, meta)
+            if args.keep_pdf:
+                shutil.copy2(pdfs[0], os.path.join(outdir, name + '.pdf'))
+                log(f"  kept pdf: {name}.pdf")
+        elif cbzs:
+            shutil.copy2(cbzs[0], dst)
+            log("  payload was already a cbz: copied")
+        elif cbrs:
+            sub = os.path.join(tmp, 'cbr')
+            os.makedirs(sub, exist_ok=True)
+            shutil.copy2(cbrs[0], os.path.join(sub, 'a.rar'))
+            if not images_to_cbz(rar_extract(sub, sub, log), dst, log, meta):
+                raise SystemExit("  cbr held no images")
+        elif not images_to_cbz(payload, dst, log, meta):
+            raise SystemExit("  found no pdf, cbz, cbr, or images in this release")
+        return dst
+
+def main():
+    p = argparse.ArgumentParser(
+        prog='comic2cbz', description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('targets', nargs='+', metavar='RELEASE_DIR|PDF')
+    p.add_argument('-o', '--outdir', default='.')
+    p.add_argument('--keep-pdf', action='store_true')
+    p.add_argument('--comicinfo', action='store_true')
+    p.add_argument('--list', action='store_true')
+    p.add_argument('-q', '--quiet', action='store_true')
+    args = p.parse_args()
+
+    log = (lambda *a: None) if args.quiet else (lambda *a: print(*a, flush=True))
+    os.makedirs(args.outdir, exist_ok=True)
+    made = []
+    for t in args.targets:
+        dst = process(t.rstrip('/'), args.outdir, args, log)
+        if dst:
+            made.append(dst)
+            log(f"  WROTE {dst} ({os.path.getsize(dst):,} bytes)\n")
+    if args.quiet:
+        for m in made:
+            print(m)
+    elif made:
+        log(f"done: {len(made)} file(s)")
+
+main()

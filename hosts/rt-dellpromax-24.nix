@@ -5,8 +5,7 @@ let
   # GL driver unwrapped.
   nixGLBin = "${pkgs.nixgl.nixGLIntel}/bin/nixGLIntel";
 
-  # Nightly, under the plain `openscad` name. The 2021.01 release lives in
-  # home/openscad-stable.nix, which isn't wired in.
+  # Nightly, under the plain `openscad` name.
   openscad = pkgs.writeShellScriptBin "openscad" ''
     exec ${nixGLBin} ${pkgs.openscad-unstable}/bin/openscad "$@"
   '';
