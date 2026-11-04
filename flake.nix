@@ -35,14 +35,33 @@
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
   in {
-    # `nix run .#refresh-hardware-config` -- re-run the install-time
-    # hardware scan and update hosts/<hostname>-hardware-configuration.nix.
-    # See scripts/refresh-hardware-config.nix for why this is a command you
-    # run rather than something the flake imports on its own.
-    apps.${system}.refresh-hardware-config = {
-      type = "app";
-      program = "${import ./scripts/refresh-hardware-config.nix { inherit pkgs; }}/bin/refresh-hardware-config";
-      meta.description = "Regenerate hosts/<hostname>-hardware-configuration.nix from the live hardware";
+    # Nix only lets a dynamic attribute path like apps.${system} be defined
+    # once, so both apps live in one attrset rather than two statements.
+    apps.${system} = {
+      # `nix run .#refresh-hardware-config` -- re-run the install-time
+      # hardware scan and update hosts/<hostname>-hardware-configuration.nix.
+      # See scripts/refresh-hardware-config.nix for why this is a command you
+      # run rather than something the flake imports on its own.
+      refresh-hardware-config = {
+        type = "app";
+        program = "${import ./scripts/refresh-hardware-config.nix { inherit pkgs; }}/bin/refresh-hardware-config";
+        meta.description = "Regenerate hosts/<hostname>-hardware-configuration.nix from the live hardware";
+      };
+
+      # `nix run .#xe-engine-util` -- live per-engine GPU busy% from DRM
+      # fdinfo, refreshing until Ctrl-C. Leave it up next to nvtop; `--once`
+      # for a single sample.
+      #
+      # An app rather than a devShell package because the one question it
+      # answers ("is this transcode actually on the GPU?") comes up while
+      # something is already running, and nvtop cannot answer it: its GPU%
+      # omits the video engines entirely. See the header of the script, and
+      # the nvtop note in the gpu devShell below.
+      xe-engine-util = {
+        type = "app";
+        program = "${import ./scripts/xe-engine-util.nix { inherit pkgs; }}/bin/xe-engine-util";
+        meta.description = "Live per-engine GPU busy% from xe DRM fdinfo, including the video engines nvtop omits";
+      };
     };
 
     # `nix develop .#gpu` -- the once-in-a-while GPU toolbox. Deliberately
@@ -58,6 +77,17 @@
       packages = with pkgs; [
         # Live per-process utilization. Reads DRM fdinfo, which is why it
         # works on xe and needs no root.
+        #
+        # READ THE DEC COLUMN FOR TRANSCODES, NOT GPU%. nvtop's xe backend
+        # (src/extract_gpuinfo_intel_xe.c) builds gpu_usage from
+        # drm-cycles-rcs + drm-cycles-ccs only; drm-cycles-vcs goes to a
+        # separate decode_usage field shown under DEC, and drm-cycles-vecs
+        # is counted toward the cycles total but assigned to no usage field
+        # whatsoever. A hevc_qsv job therefore reads GPU% 0 -- measured on
+        # fw12 at vcs 99.6% / vecs 53.8% with GPU% showing 0 -- and the
+        # VEBOX time that vpp_qsv scaling spends is not visible in any
+        # column. Desktop processes do show a GPU% because compositing is
+        # render work. `nix run .#xe-engine-util` prints all five engines.
         #
         # NOT intel-gpu-tools: as of 2.3 intel_gpu_top's engine counters
         # only know the i915 PMU. On this board it finds the card
@@ -82,6 +112,13 @@
         GPU toolbox. Measured on fw12 (Core Series 3 / Wildcat Lake, xe):
 
           nvtop                        live util, per-process, no root
+                                       GPU% is render+compute ONLY: video
+                                       transcodes show under DEC, and the
+                                       VEBOX (scaling) engine nowhere.
+          nix run .#xe-engine-util     all five engines incl. vecs, live
+                                       until Ctrl-C. Optional PID to watch
+                                       one process, --once for a single
+                                       sample. No devShell needed.
           lspci -nnk | grep -A3 VGA    which driver claimed the GPU
           vainfo                       video decode/encode profiles
           vulkaninfo --summary         Vulkan devices

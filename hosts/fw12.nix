@@ -19,6 +19,7 @@
     ../modules/smart-sleep.nix
     ../modules/docker.nix
     ../modules/kicad.nix
+    ../modules/tdarr-node.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
