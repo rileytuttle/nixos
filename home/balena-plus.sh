@@ -7,16 +7,25 @@ set -euo pipefail
 
 prog="balena"
 device_list_json=""
+verbose="${BALENA_PLUS_VERBOSE:-0}"
+dim="" reset=""
+if [ -t 2 ]; then
+    dim=$'\e[2m' reset=$'\e[0m'
+fi
 
 usage() {
     cat <<'EOF'
-Usage: balena <command> [args...]
+Usage: balena [-v|--verbose] <command> [args...]
 
 Thin wrapper around the balena CLI that:
   - runs 'balena login --web' automatically if not logged in
   - accepts device names (exact, or a unique substring) anywhere
     a device UUID is expected; a fleet name brings up a device selector
   - adds a few convenience commands (logs, ps, uuid, devices)
+
+  -v, --verbose   Print the equivalent raw balena commands to stderr
+                  (also BALENA_PLUS_VERBOSE=1). A bare 'balena -v' still
+                  prints the CLI version.
 
 Commands:
   ssh <device> [service]            SSH into the host OS (or a service container)
@@ -34,6 +43,7 @@ Examples:
   balena logs cam-rhib-2 autonomy -f -n 200
   balena ssh my-fleet           (pick a device from the fleet)
   balena device restart cam-rhib-2
+  balena -v logs cam-rhib-2 autonomy -f   (show the raw commands too)
 
 The raw CLI (and its own help) is still at '\balena', e.g. '\balena help'.
 EOF
@@ -44,10 +54,18 @@ die() {
     exit 1
 }
 
+# In verbose mode, print a raw balena command you could type by hand
+show() {
+    if [ "$verbose" = 1 ]; then
+        printf '%s+ %s%s\n' "$dim" "$*" "$reset" >&2
+    fi
+}
+
 ensure_login() {
     command -v balena >/dev/null || die "balena CLI not found in PATH"
     if ! balena whoami >/dev/null 2>&1; then
         echo "Not logged in to balena, starting web login..." >&2
+        show "balena login --web"
         balena login --web
     fi
 }
@@ -162,7 +180,11 @@ resolve_uuid() {
     local query="$1" uuid fleet rc=0
     uuid="$(match_device exact "$query")" || rc=$?
     case "$rc" in
-        0) echo "$uuid"; return ;;
+        0)
+            show "balena device list | grep $(printf '%q' "$query")   # -> $uuid"
+            echo "$uuid"
+            return
+            ;;
         3) ;;
         *) exit "$rc" ;;
     esac
@@ -170,14 +192,19 @@ resolve_uuid() {
     rc=0
     fleet="$(match_fleet "$query")" || rc=$?
     if [ "$rc" -eq 0 ]; then
-        select_fleet_device "$fleet"
+        uuid="$(select_fleet_device "$fleet")"
+        show "balena device list --fleet $(printf '%q' "$fleet")   # picked -> $uuid"
+        echo "$uuid"
         return
     fi
 
     rc=0
     uuid="$(match_device substring "$query")" || rc=$?
     case "$rc" in
-        0) echo "$uuid" ;;
+        0)
+            show "balena device list | grep -i $(printf '%q' "$query")   # -> $uuid"
+            echo "$uuid"
+            ;;
         3) die "no device or fleet matching '$query'" ;;
         *) exit "$rc" ;;
     esac
@@ -194,6 +221,7 @@ cmd_ssh() {
     local uuid
     uuid="$(resolve_uuid "$1")"
     shift
+    show "balena device ssh $uuid${*+ $(printf '%q ' "$@")}"
     exec balena device ssh "$uuid" "$@"
 }
 
@@ -226,6 +254,9 @@ fi
 exec balena logs ${log_args[*]+$(printf '%q ' "${log_args[@]}")}\${matches%% *}
 EOF
 )"
+    show "balena device ssh $uuid"
+    show "  (on host) balena ps | grep $(printf '%q' "$container")"
+    show "  (on host) balena logs ${log_args[*]+$(printf '%q ' "${log_args[@]}")}<container-id>"
     host_exec "$uuid" "$script"
 }
 
@@ -234,6 +265,8 @@ cmd_ps() {
     local uuid
     uuid="$(resolve_uuid "$1")"
     shift
+    show "balena device ssh $uuid"
+    show "  (on host) balena ps ${*+$(printf '%q ' "$@")}"
     host_exec "$uuid" "balena ps ${*+$(printf '%q ' "$@")}"
 }
 
@@ -243,6 +276,7 @@ cmd_uuid() {
 }
 
 cmd_devices() {
+    show "balena device list"
     device_list | python3 -c '
 import json, sys
 query = sys.argv[1].lower() if len(sys.argv) > 1 else ""
@@ -279,8 +313,16 @@ cmd_passthrough() {
             args[i + 1]="$(resolve_uuid "${args[i + 1]}")"
         fi
     done
+    show "balena $(printf '%q ' "${args[@]}")"
     exec balena "${args[@]}"
 }
+
+# Leading -v/--verbose turns on verbose mode; a bare 'balena -v' falls
+# through to the CLI's own version flag
+if [ "$#" -ge 2 ] && { [ "$1" = "-v" ] || [ "$1" = "--verbose" ]; }; then
+    verbose=1
+    shift
+fi
 
 if [ "$#" -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "help" ]; then
     usage
