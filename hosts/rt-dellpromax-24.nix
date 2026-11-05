@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, inputs, ... }:
 let
   # Same mesa wrapper DMS runs under (see home/niri-generic-linux.nix):
   # OpenSCAD's Qt/OpenGL preview links nix's libEGL and can't see Ubuntu's
@@ -9,6 +9,9 @@ let
   openscad = pkgs.writeShellScriptBin "openscad" ''
     exec ${nixGLBin} ${pkgs.openscad-unstable}/bin/openscad "$@"
   '';
+
+  # Same kakoune + plugins the NixOS hosts get from modules/kakoune.nix.
+  kakoune = import ../pkgs/kakoune.nix { inherit pkgs inputs; };
 in
 {
   home.username = "rileytuttle";
@@ -17,7 +20,16 @@ in
     chromium
     glow
     openscad
+
+    kakoune
+    # rc/detection/file.kak shells out to `file --mime-type`; see the note in
+    # modules/kakoune.nix.
+    file
   ];
+
+  # Same kakrc as home/core.nix. Its splits use termcmd = `terminal`, which
+  # home/niri.nix provides here via home/terminal.nix.
+  home.file.".config/kak/kakrc".source = ../dotfiles/kakrc;
 
   # The wrapper carries no .desktop file, so give fuzzel something to find.
   xdg.desktopEntries.openscad = {

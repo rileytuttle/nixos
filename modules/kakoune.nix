@@ -17,41 +17,14 @@
 # them on its own -- no plug.kak, no `git clone` at editor startup, no
 # `:plug-install`, and nothing living in ~/.config/kak/plugins. Their sources
 # are flake inputs, so `nix flake update` refreshes them.
+#
+# The package itself lives in pkgs/kakoune.nix so rt-dellpromax-24 (standalone
+# home-manager, no NixOS modules) installs the identical build.
 { pkgs, inputs, ... }:
 
-let
-  kakounePkgs = inputs.nixpkgs-kakoune.legacyPackages.${pkgs.stdenv.hostPlatform.system};
-
-  # buildKakounePluginFrom2Nix copies the source tree to
-  # share/kak/autoload/plugins/<pname>; kakoune's autoload walks it, so it does
-  # not matter whether a plugin keeps its .kak files in rc/ or at the top level.
-  # The version string is cosmetic (it only names the store path), hence the
-  # input's own revision.
-  plugin =
-    pname: src:
-    kakounePkgs.kakouneUtils.buildKakounePluginFrom2Nix {
-      inherit pname src;
-      version = src.shortRev or "unknown";
-      # Keep the autoload directory named after the plugin, not the revision,
-      # so bumping an input doesn't churn the path kakoune loads it from.
-      path = pname;
-    };
-in
 {
   environment.systemPackages = [
-    (kakounePkgs.kakoune.override {
-      plugins = [
-        # <c-p> fzf-mode, and the fzf-grep behind <c-F> and grep-mode G.
-        (plugin "fzf-kak" inputs.fzf-kak)
-
-        # openscad filetype. Worth keeping: there are a few hundred .scad files
-        # under ~/assorted_3d_model_projects.
-        (plugin "openscad-kak" inputs.openscad-kak)
-
-        # Backs the W / Wq aliases defined in the kakrc.
-        (plugin "kakoune-sudo-write" inputs.kakoune-sudo-write)
-      ];
-    })
+    (import ../pkgs/kakoune.nix { inherit pkgs inputs; })
 
     # kakoune's rc/detection/file.kak shells out to `file --mime-type` to pick
     # a filetype for anything its extension rules don't cover. Without the
