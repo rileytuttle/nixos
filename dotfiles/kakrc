@@ -153,7 +153,7 @@ set-option global grepcmd 'rg -n --column --smart-case'
 map global normal <c-n> ': grep-next-match<ret>'
 map global normal <c-N> ': grep-previous-match<ret>' # may need to clear terminal new window shortcut
 map global normal <c-f> ': my-grep<ret>'
-map global normal <c-F> ': fzf-grep<ret>' # may need to clear terminal shortcut. still doesn't work because of some shortcut or something
+map global normal <c-F> ': fzf-grep<ret>' # may need to clear terminal shortcut. still doesn't work because of some shortcut or something (fzf-grep is defined in the fzf section below)
 map global grep-mode g ': my-grep<ret>' -docstring "grep through all files"
 map global grep-mode G ': fzf-grep<ret>' -docstring "fuzzy grep through files"
 
@@ -188,8 +188,6 @@ define-command line_numbering -docstring 'take selection and number the lines' %
     execute-keys -draft <a-s>I<c-r>#.<space> 
     execute-keys <esc>
 }
-
-map global normal <c-l> ': line_numbering<ret>'
 
 # windowing
 #
@@ -318,40 +316,289 @@ map global user t ': enter-user-mode tabcontrol<ret>' -docstring "tabulation uti
 
 # plugins
 #
-# There is no plugin manager here. modules/kakoune.nix builds fzf.kak,
-# openscad.kak and kakoune-sudo-write into the editor, where kakoune autoloads
-# them -- so this file only carries their settings, not their installation.
-# plug.kak used to `git clone` into ~/.config/kak/plugins on first start, which
-# meant the editor needed the network to come up correctly and new machines
-# needed a manual `:plug-install`. `nix flake update` is what bumps them now.
+# There are none. What fzf.kak, kakoune-sudo-write and openscad.kak used to do
+# is written out below, and per-language smarts come from kakoune-lsp (the
+# "lsp" section at the bottom). pkgs/kakoune.nix supplies every program this
+# file shells out to.
 
-define-command -docstring "sudo-write alias" W %{
-    sudo-write
-}
-# Wq doesn't work because the script doesn't wait for sudo write to finish before quitting
-define-command -docstring "sudo-write quit alias" Wq %{
-    sudo-write
-    quit
+# sudo
+#
+# Replaces the kakoune-sudo-write plugin. Open a file you can read but not
+# write (or a new file in a directory you can't write) and the buffer is
+# tagged [no write perm] in the modeline. You can edit it; `:w` / `:wq` then
+# elevate the way a CLI does: if sudo still has cached credentials it just
+# writes, otherwise you get a "[sudo] password for <you>:" prompt in the
+# status line (<esc> cancels, and nothing is written). `:W` / `:Wq` force a
+# sudo write on any buffer.
+#
+# Deliberately not kakoune's `readonly` option: in this kakoune that blocks
+# editing the buffer at all ("buffer is read-only"), not just saving it.
+#
+# Why this shape:
+#   - The write is synchronous, so `:wq` / `:Wq` really do wait for it. The
+#     plugin's Wq quit before the password prompt was even answered.
+#   - The typed password never touches the environment or a command line:
+#     the shell reads it from kakoune through $kak_response_fifo into a shell
+#     variable, and hands it to `sudo -S` on stdin with printf (a builtin, so
+#     no argv either).
+#   - The file is rewritten in place with `dd of=`, so it keeps its owner and
+#     mode.
+#   - A file you can't even read never gets here: kakoune refuses to open it
+#     (you land in *scratch* with "Permission denied" in *debug*), so there is
+#     no empty buffer that could be sudo-written over the real file.
+
+declare-option -hidden bool rt_sudo_needed false
+
+define-command -hidden rt-sudo-check %{ evaluate-commands %sh{
+    f=$kak_buffile
+    case $f in /*) ;; *) exit 0 ;; esac   # scratch/fifo buffers
+    if [ -e "$f" ]; then
+        [ -w "$f" ] && exit 0
+    else
+        d=$(dirname -- "$f")
+        { [ ! -d "$d" ] || [ -w "$d" ]; } && exit 0
+    fi
+    echo 'set-option buffer rt_sudo_needed true'
+    echo 'set-option buffer modelinefmt "{Error}[no write perm]{Default} %opt{modelinefmt}"'
+}}
+hook global BufOpenFile .* rt-sudo-check
+hook global BufNewFile .* rt-sudo-check
+
+# rt-sudo-write [quit]: sudo-write the current buffer, prompting for the
+# password only if sudo has no cached credentials (or needs none).
+define-command -hidden -params ..1 rt-sudo-write %{ evaluate-commands %sh{
+    kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+    case $kak_buffile in /*) ;; *) echo "fail 'not a file buffer'"; exit 0 ;; esac
+    if sudo -n true 2>/dev/null; then
+        echo "rt-sudo-write-impl cached $1"
+    else
+        printf 'prompt -password %s %s\n' \
+            "$(kq "[sudo] password for $(id -un): ")" \
+            "$(kq "rt-sudo-write-impl password $1")"
+    fi
+}}
+
+# rt-sudo-write-impl <cached|password> [quit]. `password` is only valid from
+# inside the prompt above, where %val{text} holds what was typed.
+define-command -hidden -params 1..2 rt-sudo-write-impl %{
+    evaluate-commands -save-regs f %{
+        # Stage the buffer through kakoune's own writer, so eolformat, BOM and
+        # BufWritePre hooks behave exactly like a normal :w.
+        set-register f %sh{ mktemp "${TMPDIR:-/tmp}/kak-sudo.XXXXXX" }
+        try %{
+            write -force %reg{f}
+        } catch %{
+            nop %sh{ rm -f "$kak_main_reg_f" }
+            fail 'sudo write: could not stage the buffer to a temp file'
+        }
+
+        evaluate-commands %sh{
+            kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+            tmp=$kak_main_reg_f
+            target=$kak_buffile
+            err=$(mktemp "${TMPDIR:-/tmp}/kak-sudo-err.XXXXXX")
+            if [ "$1" = password ]; then
+                printf 'echo -to-file %s %%val{text}\n' "$(kq "$kak_response_fifo")" >"$kak_command_fifo"
+                pw=$(cat "$kak_response_fifo")
+                printf '%s\n' "$pw" | sudo -S -p '' -- dd if="$tmp" of="$target" status=none 2>"$err"
+                status=$?
+                pw=
+            else
+                sudo -n -- dd if="$tmp" of="$target" status=none 2>"$err"
+                status=$?
+            fi
+            msg=$(grep -v '^$' "$err" | tail -n 1)
+            rm -f "$tmp" "$err"
+            if [ "$status" -ne 0 ]; then
+                printf 'fail %s\n' "$(kq "sudo write failed: ${msg:-exit $status}")"
+                exit 0
+            fi
+            # Reload what is now on disk: clears the modified flag and shows
+            # exactly what root wrote.
+            echo 'edit!'
+            printf 'echo -markup %s\n' "$(kq "{Information}\"$target\" written with sudo")"
+            [ "$2" = quit ] && echo 'quit'
+        }
+    }
 }
 
-# fzf.kak. Its options are declared by the modules that use them, so they can
-# only be set once those have loaded -- which is exactly what plug.kak's
-# `defer <module>` expanded to (see the ModuleLoaded line in its plug.sh).
-map global normal <c-p> ': fzf-mode<ret>' -docstring 'enter fzf-mode'
-hook global ModuleLoaded fzf %{
-    set-option global fzf_default_opts '--layout=reverse'
-    set-option global fzf_use_main_selection false
-    # A height with a `%' makes fzf.kak pick `tmux split-window -p', which tmux
-    # removed. A plain line count takes the `-l' path and works. This is the
-    # whole reason there used to be a fzf.kak fork.
-    set-option global fzf_tmux_height 25
+define-command -hidden -params .. rt-write %{ evaluate-commands %sh{
+    if [ "$kak_opt_rt_sudo_needed" = true ] && [ $# -eq 0 ]; then
+        echo 'rt-sudo-write'
+    else
+        echo 'write %arg{@}'
+    fi
+}}
+define-command -hidden -params .. rt-write-quit %{ evaluate-commands %sh{
+    if [ "$kak_opt_rt_sudo_needed" = true ] && [ $# -eq 0 ]; then
+        echo 'rt-sudo-write quit'
+    else
+        echo 'write-quit %arg{@}'
+    fi
+}}
+alias global w rt-write
+alias global wq rt-write-quit
+
+define-command -docstring "W: write the buffer with sudo" W %{ rt-sudo-write }
+define-command -docstring "Wq: write the buffer with sudo, then quit" Wq %{ rt-sudo-write quit }
+
+# fzf
+#
+# Replaces the fzf.kak plugin. Same idea, much less machinery, and nothing
+# fails silently: fzf.kak sent tmux's errors to /dev/null, so a pane that
+# never opened just left its help box on screen.
+#
+# rt-fzf <dir> <items-cmd> <handler> <fzf-args> writes a small sh script and
+# runs it in a tmux pane under this client (inside tmux) or in a new terminal
+# window through kakoune's `terminal` command (outside it). The script cd's to
+# <dir>, pipes <items-cmd> into fzf, and sends each picked line back to this
+# client over `kak -p` as `<handler> <dir> <line>`.
+#
+# Where to look when it misbehaves:
+#   - tmux refusing the split  -> `fail` in the status line
+#   - items-cmd stderr         -> *debug* buffer
+#   - fzf itself erroring      -> the pane stays open showing it, plus a
+#                                 status-line error once you hit enter
+#
+# The script carries kak's PATH with it: a tmux pane starts from the tmux
+# server's environment, not kak's, and pkgs/kakoune.nix puts fzf and rg on
+# kak's PATH specifically.
+
+declare-option -docstring 'height in lines of the tmux pane rt-fzf opens' \
+    int rt_fzf_height 25
+
+define-command -hidden rt-fzf -params 4 %{ evaluate-commands %sh{
+    kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+    sq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
+    die() { printf 'fail %s\n' "$(kq "rt-fzf: $1")"; exit 0; }
+
+    command -v fzf >/dev/null || die 'fzf is not on PATH'
+    kak=$(command -v kak) || die 'kak is not on PATH'
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/rt-fzf.XXXXXX") || die 'mktemp failed'
+    script=$tmp/run
+
+    {
+        echo "PATH=$(sq "$PATH"); export PATH"
+        echo "dir=$(sq "$1")"
+        echo "tmp=$(sq "$tmp")"
+        echo "kak=$(sq "$kak")"
+        echo "session=$(sq "$kak_session")"
+        echo "client=$(sq "$kak_client")"
+        echo "handler=$(sq "$3")"
+        cat <<'EOF'
+kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+to_client() { printf 'evaluate-commands -client %s %s\n' "$(kq "$client")" "$(kq "$1")"; }
+trap 'rm -rf "$tmp"' EXIT
+if ! cd "$dir"; then
+    to_client "fail $(kq "rt-fzf: cannot cd to $dir")" | "$kak" -p "$session"
+    exit 1
+fi
+EOF
+        printf '( %s ) 2>"$tmp/items.err" | fzf %s >"$tmp/result"\n' "$2" "$4"
+        cat <<'EOF'
+status=$?
+case $status in
+    0|1|130) ;;
+    *) printf '\nrt-fzf: fzf exited %s -- press enter to close\n' "$status"
+       read -r _ </dev/tty ;;
+esac
+{
+    if [ -s "$tmp/items.err" ]; then
+        printf 'echo -debug %s\n' "$(kq "rt-fzf: $(cat "$tmp/items.err")")"
+    fi
+    case $status in
+        0)  while IFS= read -r line; do
+                [ -n "$line" ] && to_client "$handler $(kq "$dir") $(kq "$line")"
+            done <"$tmp/result" ;;
+        1|130) ;;
+        *)  to_client "fail $(kq "rt-fzf: fzf exited $status")" ;;
+    esac
+} | "$kak" -p "$session"
+EOF
+    } >"$script"
+
+    if [ -n "$kak_client_env_TMUX" ]; then
+        tmux=$(command -v tmux) || die 'this client is in tmux but tmux is not on PATH'
+        # TMUX picks the server: kak's own environment may belong to a
+        # different session, or to none if the kak server started outside tmux.
+        if [ -n "$kak_client_env_TMUX_PANE" ]; then
+            set -- -t "$kak_client_env_TMUX_PANE"
+        else
+            set --
+        fi
+        if ! err=$(TMUX=$kak_client_env_TMUX "$tmux" split-window "$@" \
+                -l "$kak_opt_rt_fzf_height" "sh $(sq "$script")" 2>&1); then
+            rm -rf "$tmp"
+            die "tmux split-window failed: $err"
+        fi
+    else
+        printf 'terminal sh %s\n' "$(kq "$script")"
+    fi
+}}
+
+# Handlers: called back from the fzf script as `<handler> <dir> <line>`.
+define-command -hidden rt-fzf-pick-file -params 2 %{
+    edit -existing "%arg{1}/%arg{2}"
 }
-hook global ModuleLoaded fzf-file %{
-    set-option global fzf_file_command 'find'
+define-command -hidden rt-fzf-pick-buffer -params 2 %{
+    buffer %arg{2}
+}
+# <line> is rg's file:line:column:text. A file name containing ':' will
+# confuse it; nothing in practice does.
+define-command -hidden rt-fzf-pick-grep -params 2 %{ evaluate-commands %sh{
+    kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+    file=${2%%:*};  rest=${2#*:}
+    line=${rest%%:*}; rest=${rest#*:}
+    col=${rest%%:*}
+    printf 'edit -existing %s %s %s\n' "$(kq "$1/$file")" "$line" "$col"
+}}
+
+define-command -docstring 'fzf over every file under the working directory' \
+fzf-file %{
+    rt-fzf %sh{pwd} \
+        %{find . -name .git -prune -o -type f -print | sed 's|^\./||'} \
+        rt-fzf-pick-file \
+        %{--layout=reverse -m --prompt 'file> ' --preview 'cat {}'}
 }
 
-# if fzf ever stops working try something like this
-# tmux-terminal-vertical fzf | terminal kak -c %val{session} -e "%arg{@}" 
+define-command -docstring 'fzf over the files git tracks in this repo' \
+fzf-git %{ evaluate-commands %sh{
+    kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+    if ! top=$(git rev-parse --show-toplevel 2>&1); then
+        printf 'fail %s\n' "$(kq "fzf-git: $top")"
+        exit 0
+    fi
+    printf 'rt-fzf %s %s rt-fzf-pick-file %s\n' "$(kq "$top")" "$(kq 'git ls-files')" \
+        "$(kq "--layout=reverse -m --prompt 'git> ' --preview 'cat {}'")"
+}}
+
+define-command -docstring 'fzf over open buffers' \
+fzf-buffer %{ evaluate-commands %sh{
+    kq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/''/g")"; }
+    sq() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
+    eval "set -- $kak_quoted_buflist"
+    items='printf "%s\n"'
+    for b in "$@"; do items="$items $(sq "$b")"; done
+    printf 'rt-fzf %s %s rt-fzf-pick-buffer %s\n' "$(kq "$PWD")" "$(kq "$items")" \
+        "$(kq "--layout=reverse --prompt 'buffer> '")"
+}}
+
+# Every line of every file rg would search (so .gitignore applies), fuzzy
+# matched; the preview scrolls to the matching line.
+define-command -docstring 'fuzzy grep every line under the working directory' \
+fzf-grep %{
+    rt-fzf %sh{pwd} \
+        %{rg --line-number --column --no-heading --color=never ''} \
+        rt-fzf-pick-grep \
+        %{--layout=reverse -m --prompt 'grep> ' --delimiter : --preview 'cat {1}' --preview-window '+{2}-/2'}
+}
+
+declare-user-mode fzf
+map global normal <c-p> ': enter-user-mode fzf<ret>' -docstring 'fzf pickers'
+map global fzf f ': fzf-file<ret>'   -docstring 'all files, recursively'
+map global fzf v ': fzf-git<ret>'    -docstring 'git-tracked files'
+map global fzf b ': fzf-buffer<ret>' -docstring 'open buffers'
+map global fzf g ': fzf-grep<ret>'   -docstring 'fuzzy grep'
 
 define-command -docstring "echo the present working directory" whereami %{
     echo %sh{
@@ -360,10 +607,213 @@ define-command -docstring "echo the present working directory" whereami %{
     }
 }
 
-# openscad.kak gives the filetype and highlighting; it doesn't set the comment
-# strings, so do that here.
-hook global BufSetOption filetype=(openscad) %{
+# openscad
+#
+# Kakoune ships no OpenSCAD filetype; this replaces the openscad.kak plugin.
+# Highlighting only -- completion, hover, go-to-definition, rename and
+# formatting come from openscad-lsp (see the lsp section). The plugin's indent
+# hook was written against the old meaning of <a-x> and silently did nothing;
+# these indent rules follow kakoune's own json.kak.
+
+hook global BufCreate .*[.]scad %{
+    set-option buffer filetype openscad
+}
+
+# %< > rather than %{ }: the InsertChar filter below contains a lone `}`,
+# which would close a %{ } block early.
+hook global WinSetOption filetype=openscad %<
+    require-module openscad
     set-option buffer comment_line '//'
     set-option buffer comment_block_begin '/*'
     set-option buffer comment_block_end '*/'
+    add-highlighter window/openscad ref openscad
+    hook window InsertChar \n -group openscad-indent openscad-indent-on-new-line
+    hook window InsertChar [}\])] -group openscad-indent openscad-indent-on-closer
+    hook -once -always window WinSetOption filetype=.* %{
+        remove-highlighter window/openscad
+        remove-hooks window openscad-.+
+    }
+>
+
+provide-module openscad %§
+    add-highlighter shared/openscad regions
+    add-highlighter shared/openscad/code default-region group
+    add-highlighter shared/openscad/string region '"' (?<!\\)(\\\\)*" fill string
+    add-highlighter shared/openscad/line-comment region // $ fill comment
+    add-highlighter shared/openscad/block-comment region /\* \*/ fill comment
+
+    add-highlighter shared/openscad/code/ regex \b\d+(\.\d*)?([eE][+-]?\d+)?\b|\B\.\d+\b 0:value
+    add-highlighter shared/openscad/code/ regex \b(true|false|undef|PI)\b 0:value
+    add-highlighter shared/openscad/code/ regex \$(fa|fs|fn|t|vpr|vpt|vpd|vpf|children|preview)\b 0:variable
+    add-highlighter shared/openscad/code/ regex \b(include|use)\b 0:meta
+    add-highlighter shared/openscad/code/ regex \b(module|function|for|intersection_for|each|if|else|let|assert|echo)\b 0:keyword
+    # Built-in modules and functions, only when called, so a variable that
+    # happens to be named `scale` or `max` isn't coloured as one.
+    add-highlighter shared/openscad/code/ regex \b(circle|square|polygon|text|import|projection|sphere|cube|cylinder|polyhedron|linear_extrude|rotate_extrude|surface|translate|rotate|scale|resize|mirror|multmatrix|color|offset|hull|minkowski|union|difference|intersection|render|children|concat|lookup|str|chr|ord|search|version|version_num|parent_module|abs|sign|sin|cos|tan|acos|asin|atan|atan2|floor|round|ceil|ln|len|log|pow|sqrt|exp|rands|min|max|norm|cross|is_undef|is_bool|is_num|is_string|is_list|is_function)\h*(?=\() 1:builtin
+    # The name being defined: `module foo(` / `function bar(`
+    add-highlighter shared/openscad/code/ regex \b(?:module|function)\h+(\w+) 1:function
+    add-highlighter shared/openscad/code/ regex [-+*/%^!<>=&|?:]+ 0:operator
+§
+
+define-command -hidden openscad-indent-on-new-line %<
+    evaluate-commands -draft -itersel %<
+        # preserve previous line indent
+        try %{ execute-keys -draft <semicolon> K <a-&> }
+        # drop trailing whitespace from the line just left
+        try %{ execute-keys -draft k x s \h+$ <ret> d }
+        # indent after a line ending in an opener
+        try %< execute-keys -draft k x <a-k> [[{(]\h*$ <ret> j <a-gt> >
+        # carry a // comment onto the new line
+        try %{ execute-keys -draft <semicolon> <c-s> k x s ^\h*\K//+\h* <ret> y <c-o> P <esc> }
+    >
+>
+
+define-command -hidden openscad-indent-on-closer %<
+    evaluate-commands -draft -itersel %<
+        # align a closer typed alone on its line with the line of its opener
+        try %< execute-keys -draft <a-h> <a-k> ^\h+[}\])]$ <ret> m <a-S> 1<a-&> >
+    >
+>
+
+# lsp
+#
+# kakoune-lsp, with servers supplied by pkgs/kakoune.nix:
+#
+#   c, cpp      clangd                 needs compile_commands.json for real
+#                                      projects (cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON)
+#   python      basedpyright + ruff    types/navigation + lint/format/imports
+#   sh          bash-language-server   runs shellcheck and shfmt itself
+#   dockerfile  docker-langserver + docker-language-server
+#   compose     docker-language-server compose*.y*ml / docker-compose*.y*ml
+#   yaml        yaml-language-server   schemas from schemastore.org by filename
+#   json        vscode-json-language-server
+#   xml         lemminx
+#   nix         nixd
+#   openscad    openscad-lsp
+#
+# Opt-in per filetype instead of a global `lsp-enable`: kak-lsp carries server
+# configs for ~50 languages and would otherwise try (and fail, noisily) to
+# start rust-analyzer, gopls, ... for anything else you open.
+#
+# <space>l (user l) opens kak-lsp's own mode: h hover, d definition,
+# r references, R rename, f format, a code actions, e diagnostics list,
+# n/p next/previous error, s jump to symbol.
+#
+# Guarded so a kakrc on a machine without kak-lsp still loads; it just says so
+# in *debug*.
+
+declare-option -hidden bool rt_lsp false
+evaluate-commands %sh{
+    if command -v kak-lsp >/dev/null; then
+        kak-lsp
+        echo 'set-option global rt_lsp true'
+    else
+        echo "echo -debug 'kak-lsp is not on PATH: LSP disabled'"
+    fi
 }
+
+define-command -hidden rt-lsp-setup %{
+    hook global WinSetOption filetype=(c|cpp|python|sh|dockerfile|yaml|json|xml|nix|openscad) %{
+        lsp-enable-window
+    }
+    # Diagnostics as text at the end of the offending line, not just a gutter mark.
+    lsp-inlay-diagnostics-enable global
+    map global user l ': enter-user-mode lsp<ret>' -docstring 'LSP'
+
+    # Where kak-lsp's built-in config is fine (sh, json, nix) it is used as-is.
+    # The rest are replaced: remove-hooks first, or both hooks fire and
+    # whichever runs last wins.
+
+    remove-hooks global lsp-filetype-c-family
+    hook -group rt-lsp global BufSetOption filetype=(?:c|cpp) %{
+        set-option buffer lsp_servers %{
+            [clangd]
+            root_globs = ["compile_commands.json", ".clangd", ".git", ".hg"]
+            # --query-driver lets clangd ask the project's own compiler for its
+            # system include paths -- this clangd is nix's, the project's gcc
+            # may be Ubuntu's.
+            args = ["--log=error", "--query-driver=/usr/bin/**,/nix/store/**"]
+        }
+    }
+
+    # pylsp is kak-lsp's default; basedpyright (pyright with a few more checks)
+    # plus ruff is the better-maintained pair. typeCheckingMode "standard":
+    # basedpyright's own default ("recommended") flags nearly every untyped line.
+    remove-hooks global lsp-filetype-python
+    hook -group rt-lsp global BufSetOption filetype=python %{
+        set-option buffer lsp_servers %{
+            [basedpyright-langserver]
+            root_globs = ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "pyrightconfig.json", ".git", ".hg"]
+            args = ["--stdio"]
+            settings_section = "_"
+            [basedpyright-langserver.settings._]
+            basedpyright.analysis.typeCheckingMode = "standard"
+            [ruff]
+            root_globs = ["pyproject.toml", "ruff.toml", ".ruff.toml", ".git", ".hg"]
+            args = ["server", "--quiet"]
+        }
+    }
+
+    # Two servers, as Docker's own VS Code extension runs them: docker-langserver
+    # has the instruction docs, completion and lint (deprecated MAINTAINER and
+    # the like); Docker's docker-language-server adds BuildKit build checks and
+    # image info, but answers nothing on its own without docker on the machine.
+    hook -group rt-lsp global BufSetOption filetype=dockerfile %{
+        set-option buffer lsp_servers %{
+            [docker-langserver]
+            root_globs = [".git", ".hg"]
+            args = ["--stdio"]
+            [docker-language-server]
+            root_globs = [".git", ".hg"]
+            args = ["start", "--stdio"]
+        }
+    }
+
+    # Compose files are yaml to kakoune (so they keep yaml highlighting), but
+    # docker-language-server only treats a document as compose when its LSP
+    # languageId is "dockercompose" -- sent as "yaml" it answers nothing. That
+    # id goes to every server on the buffer, so compose files get docker's
+    # server alone rather than alongside yaml-language-server.
+    remove-hooks global lsp-filetype-yaml
+    hook -group rt-lsp global BufSetOption filetype=yaml %{ evaluate-commands %sh{
+        case ${kak_buffile##*/} in
+            compose.y*ml|compose.*.y*ml|docker-compose.y*ml|docker-compose.*.y*ml)
+                echo 'set-option buffer lsp_language_id dockercompose'
+                echo 'set-option buffer lsp_servers %{
+                    [docker-language-server]
+                    root_globs = [".git", ".hg"]
+                    args = ["start", "--stdio"]
+                }' ;;
+            *)
+                echo 'set-option buffer lsp_servers %{
+                    [yaml-language-server]
+                    root_globs = [".git", ".hg"]
+                    args = ["--stdio"]
+                    settings_section = "yaml"
+                    [yaml-language-server.settings.yaml]
+                    format.enable = true
+                }' ;;
+        esac
+    }}
+
+    hook -group rt-lsp global BufSetOption filetype=xml %{
+        set-option buffer lsp_servers %{
+            [lemminx]
+            root_globs = [".git", ".hg"]
+        }
+    }
+
+    hook -group rt-lsp global BufSetOption filetype=openscad %{
+        set-option buffer lsp_servers %{
+            [openscad-lsp]
+            root_globs = [".git", ".hg"]
+            args = ["--stdio"]
+            # It rejects a configuration without an `openscad` object
+            # ("missing field `openscad`"), so always send one.
+            settings_section = "_"
+            [openscad-lsp.settings._.openscad]
+            search_paths = ""
+        }
+    }
+}
+evaluate-commands %sh{ [ "$kak_opt_rt_lsp" = true ] && echo rt-lsp-setup }

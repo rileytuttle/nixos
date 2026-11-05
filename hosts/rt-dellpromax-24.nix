@@ -21,10 +21,9 @@ in
     glow
     openscad
 
+    # Brings fzf, ripgrep, file, kak-lsp and the language servers on kak's
+    # PATH; see pkgs/kakoune.nix.
     kakoune
-    # rc/detection/file.kak shells out to `file --mime-type`; see the note in
-    # modules/kakoune.nix.
-    file
   ];
 
   # Same kakrc as home/core.nix. Its splits use termcmd = `terminal`, which
