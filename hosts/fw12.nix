@@ -90,6 +90,18 @@
     acSuspendBehavior = 0;
   };
 
+  # Claude Code in a container, from home/claude-container.nix. Enabled here
+  # rather than in the module because it needs a container runtime, and
+  # ../modules/docker.nix (imported above) is what provides one on this host.
+  #
+  # runtime is left to auto-detect: docker is what is installed today, and the
+  # tool handles a rootful daemon by dropping to this uid inside. If podman
+  # ever lands here it gets picked up first, and then nothing has to chown.
+  home-manager.users.rileytuttle.programs.claude-container = {
+    enable = true;
+    aliases = [ "claude-c" ];
+  };
+
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;
 

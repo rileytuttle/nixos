@@ -38,6 +38,10 @@ The configuration is organized as follows:
 │   ├── deskflow.nix       # DeskFlow keyboard/mouse sharing
 │   ├── local-nginx.nix    # Local nginx web server
 │   └── android-tools.nix  # Android development tools
+├── pkgs/                  # Personal tools, exposed as flake packages
+│   ├── scripts.nix        # shic, sync-ipod, git-clear, comic2cbz
+│   ├── scripts/           # the sources those are built from
+│   └── claude-container/  # Claude Code in a container with its own nix store
 ├── dotfiles/              # Plain config files delivered by home-manager
 │   ├── kakrc              # Kakoune config
 │   ├── tmux.conf          # tmux config
@@ -52,6 +56,8 @@ The configuration is organized as follows:
     ├── niri-config.kdl    # The niri config itself, shared between hosts
     ├── niri-generic-linux.nix     # Non-NixOS session glue (rt-dellpromax-24)
     ├── balena.nix         # balena-cli + balena-plus wrapper (rt-dellpromax-24)
+    ├── claude-code.nix    # claude-code on the host
+    ├── claude-container.nix  # home-manager side of pkgs/claude-container
     └── dank-material-shell.nix  # Dank Material Shell theme
 ```
 
@@ -295,6 +301,55 @@ The configuration includes several custom modules:
 - `deskflow.nix`: DeskFlow keyboard/mouse sharing
 - `local-nginx.nix`: Local nginx web server
 - `android-tools.nix`: Android development tools
+
+## claude-container
+
+Claude Code in a container, over whatever directory you are standing in:
+
+```bash
+claude-container                    # mount $PWD read-write, start claude
+claude-container --ro               # mount it read-only instead
+claude-container --ro ~/some/repo   # mount that, read-only
+claude-container --skip-permissions # the container is the sandbox
+claude-container --shell            # poke around inside instead
+```
+
+The workspace is bind-mounted at the same absolute path it has on the host, so
+Claude sees what plain `claude` would see and its session and plan files line
+up with the ones outside. `--help` lists the rest (extra mounts, ssh-agent
+forwarding, where the container's `$HOME` lives).
+
+The interesting part is that the container has **its own nix**, with
+`/nix` on a named volume. Claude can fit itself out with whatever a task
+needs, and it stays installed:
+
+```
+nix profile install nixpkgs#gcc nixpkgs#python3
+```
+
+`nixpkgs` in there is pinned to this flake's own lock, so a tool Claude
+installs is the same build the host would have used and `cache.nixos.org`
+already has it.
+
+Built by `pkgs/claude-container/` (image + wrapper) and installed by
+`home/claude-container.nix`, which is where per-machine defaults go --
+`programs.claude-container.{runtime,stateDir,extraMounts,aliases,...}`. Both
+fw12 and rt-dellpromax-24 enable it in their host files, aliased to
+`claude-c`. Standalone it is just
+`nix run github:rileytuttle/nixos#claude-container`.
+
+Needs podman or docker on the host -- the one thing nix cannot supply here,
+since a daemon socket or a setuid `newuidmap` has to be the host's own. fw12
+has docker from `modules/docker.nix`; on rt-dellpromax-24 it is whatever
+Ubuntu has (`apt install podman`, or the docker already there for balena
+work).
+
+Prefer podman where you have it: rootless podman maps container root to your
+own uid, so the container owns its `/nix` *and* writes workspace files as you.
+Under a rootful docker daemon the entrypoint drops to your uid instead and
+chowns the store once per volume -- it works, the first run is just slower. A new image (claude-code bumped, or
+anything in `pkgs/claude-container/` edited) gets a new tag and a fresh `/nix`
+volume; `claude-container --prune` clears the leftovers.
 
 ## Home Manager Configuration
 

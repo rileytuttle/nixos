@@ -42,6 +42,17 @@
   let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
+
+    # claude-code is unfree, and the `pkgs` above is the bare legacyPackages
+    # set with no config -- the hosts set nixpkgs.config.allowUnfree inside
+    # their own nixpkgs (modules/common.nix), which does nothing for the
+    # flake's own `packages` output. This instance exists so
+    # packages.claude-container can evaluate. allowUnfree is an eval-time
+    # check and nothing else, so the store paths are identical either way.
+    pkgsUnfree = import nixpkgs {
+      inherit system;
+      config.allowUnfree = true;
+    };
   in {
     # Nix only lets a dynamic attribute path like apps.${system} be defined
     # once, so both apps live in one attrset rather than two statements.
@@ -146,7 +157,21 @@
     # The scripts carried over from the old Configs repo. Exposed as packages
     # (not just added to home.packages) so they can be reached from any
     # machine with nix: `nix run github:rileytuttle/nixos#shic`.
-    packages.${system} = import ./pkgs/scripts.nix { inherit pkgs; };
+    packages.${system} = import ./pkgs/scripts.nix { inherit pkgs; } // {
+      # `nix run .#claude-container` -- Claude Code in a container that has its
+      # own nix and can install tools for itself. See
+      # pkgs/claude-container/default.nix; home/claude-container.nix is the
+      # home-manager side of the same package.
+      #
+      # nixpkgsRev is what `nixpkgs#...` resolves to *inside* the container.
+      # Passing this flake's own lock means a tool Claude installs in there is
+      # the same build the host would have used, and cache.nixos.org already
+      # has it.
+      claude-container = import ./pkgs/claude-container {
+        pkgs = pkgsUnfree;
+        nixpkgsRev = nixpkgs.rev;
+      };
+    };
 
     # `nix flake check` -- builds every host in one go. This exists because
     # hosts/desktop.nix sat broken for months without anything noticing: it
@@ -199,6 +224,7 @@
                 ./home/niri.nix
                 ./home/dank-material-shell.nix
                 ./home/claude-code.nix
+                ./home/claude-container.nix
               ];
             };
             home-manager.extraSpecialArgs = { inherit inputs; };
@@ -260,6 +286,7 @@
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
         ./home/balena.nix
+        ./home/claude-container.nix
       ];
     };
   };

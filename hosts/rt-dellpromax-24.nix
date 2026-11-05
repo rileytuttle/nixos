@@ -40,6 +40,18 @@ in
     mimeType = [ "application/x-openscad" ];
   };
 
+  # Claude Code in a container, from home/claude-container.nix. The one thing
+  # it needs that nix cannot supply is the container runtime itself -- a daemon
+  # socket or a setuid newuidmap, which has to be Ubuntu's own. So `apt install
+  # podman` (preferred: rootless, and then the container owns its /nix *and*
+  # writes workspace files as this user), or use the docker that is already
+  # here for balena work. runtime is left null so it picks up whichever is on
+  # PATH.
+  programs.claude-container = {
+    enable = true;
+    aliases = [ "claude-c" ];
+  };
+
   home.sessionVariables = {
   };
 
