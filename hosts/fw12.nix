@@ -99,7 +99,7 @@
   # ever lands here it gets picked up first, and then nothing has to chown.
   home-manager.users.rileytuttle.programs.claude-container = {
     enable = true;
-    aliases = [ "claude-c" ];
+    aliases = [ "claude-c" "claude" ];
   };
 
   services.power-profiles-daemon.enable = false;

@@ -49,7 +49,7 @@ in
   # PATH.
   programs.claude-container = {
     enable = true;
-    aliases = [ "claude-c" ];
+    aliases = [ "claude-c" "claude" ];
   };
 
   home.sessionVariables = {
