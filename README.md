@@ -55,7 +55,7 @@ The configuration is organized as follows:
     ├── niri.nix           # Niri home settings, shared by fw12 + rt-dellpromax-24
     ├── niri-config.kdl    # The niri config itself, shared between hosts
     ├── niri-generic-linux.nix     # Non-NixOS session glue (rt-dellpromax-24)
-    ├── balena.nix         # balena-cli + balena-plus wrapper (rt-dellpromax-24)
+    ├── balena.nix         # balena-cli + the balena-plus flake (rt-dellpromax-24)
     ├── claude-code.nix    # claude-code on the host
     ├── claude-container.nix  # home-manager side of pkgs/claude-container
     └── dank-material-shell.nix  # Dank Material Shell theme
@@ -350,6 +350,26 @@ Under a rootful docker daemon the entrypoint drops to your uid instead and
 chowns the store once per volume -- it works, the first run is just slower. A new image (claude-code bumped, or
 anything in `pkgs/claude-container/` edited) gets a new tag and a fresh `/nix`
 volume; `claude-container --prune` clears the leftovers.
+
+## balena-plus
+
+A wrapper around the balena CLI -- device names instead of UUIDs, an fzf picker
+for fleets, and `tunnel`/`logs`/`ps` helpers. rt-dellpromax-24 gets it through
+`home/balena.nix`.
+
+Unlike everything else here it does **not** live in this repo. It is
+[github:rileytuttle-havoc/balena-plus](https://github.com/rileytuttle-havoc/balena-plus),
+pulled in as a flake input, because coworkers need it on machines that have
+nothing to do with this config -- `curl -fsSL
+https://raw.githubusercontent.com/rileytuttle-havoc/balena-plus/main/install.sh | bash`
+installs nix if they have none and the wrapper either way. There is one copy of
+the script, in that repo; change it there and `nix flake update balena-plus`
+here.
+
+The shared package deliberately carries no balena-cli -- it uses whatever
+`balena` is on PATH, so nobody installs a second ~630MB copy of a CLI they
+already have. That is why `home/balena.nix` still installs `pkgs.balena-cli`
+itself.
 
 ## Home Manager Configuration
 

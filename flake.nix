@@ -36,6 +36,15 @@
       url = "github:nix-community/nixGL";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # rt-dellpromax-24 only -- see home/balena.nix. The balena CLI wrapper used
+    # to live in this repo, but colleagues need it on machines that have
+    # nothing to do with this config, so it is its own flake now and this is
+    # the only copy. `nix flake update balena-plus` after changing it there.
+    balena-plus = {
+      url = "github:rileytuttle-havoc/balena-plus";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, nixos-hardware, ... } @ inputs:
