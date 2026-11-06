@@ -20,8 +20,9 @@ Usage: balena [-v|--verbose] <command> [args...]
 Thin wrapper around the balena CLI that:
   - runs 'balena login --web' automatically if not logged in
   - accepts device names (exact, or a unique substring) anywhere
-    a device UUID is expected; a fleet name brings up a device selector
-  - adds a few convenience commands (logs, ps, uuid, devices)
+    a device UUID is expected; a fleet name brings up an fzf device
+    picker (BALENA_PLUS_PICKER=select for a plain numbered menu)
+  - adds a few convenience commands (logs, ps, uuid, devices, tunnel)
 
   -v, --verbose   Print the equivalent raw balena commands to stderr
                   (also BALENA_PLUS_VERBOSE=1). A bare 'balena -v' still
@@ -29,6 +30,9 @@ Thin wrapper around the balena CLI that:
 
 Commands:
   ssh <device> [service]            SSH into the host OS (or a service container)
+  tunnel <device> <port...>         Tunnel device ports to localhost. A port is
+                                    <remote>[:[localIP:]local]; the -p the raw
+                                    CLI wants is optional. Repeat for more ports.
   logs <device> <container> [opts]  Container logs via the host's balena engine
                                     opts: -f, -n/--tail N, -t, or any 'balena logs' flag
   ps <device> [ps opts]             'balena ps' on the device host
@@ -41,6 +45,9 @@ Commands:
 Examples:
   balena ssh cam-rhib-2
   balena logs cam-rhib-2 autonomy -f -n 200
+  balena tunnel cam-rhib-2 8080:3000      (device 8080 -> localhost:3000)
+  balena tunnel cam-rhib-2 -p 22222       (the raw CLI's spelling also works)
+  balena tunnel cam-rhib-2 8080 9000:9001 (several ports at once)
   balena ssh my-fleet           (pick a device from the fleet)
   balena device restart cam-rhib-2
   balena -v logs cam-rhib-2 autonomy -f   (show the raw commands too)
@@ -142,7 +149,9 @@ sys.exit(3)
 ' "$query"
 }
 
-# Interactively pick a device from a fleet (online devices first). Prints the UUID.
+# Interactively pick a device from a fleet (online devices first). Prints the
+# UUID. Uses fzf when it's installed; falls back to bash's numbered 'select'
+# menu, which BALENA_PLUS_PICKER=select also forces.
 select_fleet_device() {
     local fleet="$1"
     local rows=()
@@ -161,6 +170,21 @@ for d in devices:
         return
     fi
     { : </dev/tty; } 2>/dev/null || die "fleet '$fleet' has multiple devices and no terminal to choose from"
+
+    # fzf reads keys from and draws on /dev/tty, so it still works with our
+    # stdout captured by the caller's command substitution. The UUID is field 1
+    # and stays hidden (--with-nth=2), but comes back on the selected line.
+    if [ "${BALENA_PLUS_PICKER:-}" != "select" ] && command -v fzf >/dev/null 2>&1; then
+        local picked
+        picked="$(printf '%s\n' "${rows[@]}" | fzf \
+            --delimiter=$'\t' --with-nth=2 \
+            --no-multi --height=40% --reverse \
+            --prompt="$fleet> " \
+            --header='select a device (type to filter, esc to cancel)')" \
+            || die "no device selected"
+        echo "${picked%%$'\t'*}"
+        return
+    fi
 
     local labels=("${rows[@]#*$'\t'}") choice
     echo "Select a device from fleet '$fleet':" >&2
@@ -223,6 +247,30 @@ cmd_ssh() {
     shift
     show "balena device ssh $uuid${*+ $(printf '%q ' "$@")}"
     exec balena device ssh "$uuid" "$@"
+}
+
+# 'balena device tunnel', but the -p before each port mapping is optional: a
+# bare '8080:3000' (or '8080') gets one added. An explicit -p/--port still
+# works, so anything the raw CLI accepts is accepted here too.
+cmd_tunnel() {
+    [ "$#" -ge 1 ] || die "usage: $prog tunnel <device> <remote>[:[localIP:]local] ..."
+    local uuid
+    uuid="$(resolve_uuid "$1")"
+    shift
+    [ "$#" -ge 1 ] || die "usage: $prog tunnel <device> <remote>[:[localIP:]local] ..."
+
+    local args=() arg prev=""
+    for arg in "$@"; do
+        if [[ "$prev" != -p && "$prev" != --port && "$arg" =~ ^[0-9]+(:[^:]*)*$ ]]; then
+            args+=(-p "$arg")
+        else
+            args+=("$arg")
+        fi
+        prev="$arg"
+    done
+
+    show "balena device tunnel $uuid $(printf '%q ' "${args[@]}")"
+    exec balena device tunnel "$uuid" "${args[@]}"
 }
 
 cmd_logs() {
@@ -340,6 +388,7 @@ command="$1"
 shift
 case "$command" in
     ssh)     cmd_ssh "$@" ;;
+    tunnel)  cmd_tunnel "$@" ;;
     logs)    cmd_logs "$@" ;;
     ps)      cmd_ps "$@" ;;
     uuid)    cmd_uuid "$@" ;;

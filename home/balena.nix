@@ -1,5 +1,5 @@
 # balena-cli plus the balena-plus.sh wrapper (device-name resolution, login
-# on demand, logs/ps/uuid/devices helpers). The wrapper installs as
+# on demand, tunnel/logs/ps/uuid/devices helpers). The wrapper installs as
 # `balena-plus` and is aliased to `balena`; `\balena` skips the alias and
 # runs the raw CLI, which is also installed here.
 #
@@ -10,7 +10,7 @@
 let
   balena-plus = pkgs.writeShellApplication {
     name = "balena-plus";
-    runtimeInputs = with pkgs; [ balena-cli python3 ];
+    runtimeInputs = with pkgs; [ balena-cli python3 fzf ];
     text = builtins.readFile ./balena-plus.sh;
   };
 

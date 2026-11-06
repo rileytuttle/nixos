@@ -5,8 +5,9 @@
 # here.
 #
 # Adds on top of oclif's completion:
-#   - the wrapper's own commands (ssh, logs, ps, uuid, devices) at the top level
-#   - device names for: ssh/logs/ps/uuid <device>, device <sub> <device>,
+#   - the wrapper's own commands (ssh, tunnel, logs, ps, uuid, devices) at the
+#     top level
+#   - device names for: ssh/tunnel/logs/ps/uuid <device>, device <sub> <device>,
 #     and --device <device>
 # Device names come from `balena-plus __complete-devices`, which caches them
 # for 10 minutes, so the first tab after that may take a few seconds.
@@ -35,12 +36,12 @@ _balena_plus_complete() {
     if [ "$COMP_CWORD" -eq $((1 + off)) ]; then
         _balena_autocomplete
         # shellcheck disable=SC2207
-        COMPREPLY+=($(compgen -W "ssh logs ps uuid devices" -- "$cur"))
+        COMPREPLY+=($(compgen -W "ssh tunnel logs ps uuid devices" -- "$cur"))
         return
     fi
 
     case "$cmd" in
-        ssh|logs|ps|uuid)
+        ssh|tunnel|logs|ps|uuid)
             if [ "$COMP_CWORD" -eq $((2 + off)) ]; then
                 _balena_plus_devices "$cur"
             fi
