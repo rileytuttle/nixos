@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1793984068,
-        "narHash": "sha256-DkzCh4WnI3SdEoI+QC6r39Ua+1CUdJr7Vi2b17cZuEw=",
+        "lastModified": 1793986963,
+        "narHash": "sha256-sq27jmUJorrcggPLuvyRVPHvZHSpEjlc9/WQsgSOqv8=",
         "owner": "rileytuttle-havoc",
         "repo": "balena-plus",
-        "rev": "699b9fadab1955754e258b35804472f7c96f1d29",
+        "rev": "9c4d4688b31f8a86bfc579dd45ec976488757e99",
         "type": "github"
       },
       "original": {
