@@ -293,6 +293,11 @@
         ./home/niri.nix
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
+        # Same shared layout fw12 gets from modules/kanata.nix, driven by a
+        # systemd *user* service instead of a NixOS one. The uinput/group
+        # setup nix cannot do here is in `kanata-host-setup`, which that
+        # module puts on PATH -- run it once after the first switch.
+        ./home/kanata-generic-linux.nix
         ./home/balena.nix
         ./home/claude-container.nix
       ];

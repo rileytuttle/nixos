@@ -1,31 +1,23 @@
-#|
-This minimal config changes Caps Lock to act as Caps Lock on quick tap, but
-if held, it will act as Left Ctrl. It also changes the backtick/grave key to
-act as backtick/grave on quick tap, but change ijkl keys to arrow keys on hold.
+#| ---------------------------------------------------------------------------
+LAYOUT ONLY -- no (defcfg) here. Deliberately.
 
-This text between the two pipe+octothorpe sequences is a multi-line comment.
-|#
+kanata's (defcfg) block holds the host-specific bits: which evdev devices to
+grab (linux-dev) and what to do when none of them exist. This file is shared
+by every host, so it carries none of that -- it is defsrc/deflayer/defalias
+and nothing else. The defcfg is generated per-host by nix and prepended:
 
-;; Text after double-semicolons are single-line comments.
+  fw12 (NixOS)              modules/kanata.nix, via services.kanata.keyboards
+  rt-dellpromax-24 (Ubuntu) home/kanata-generic-linux.nix
 
-#|
-One defcfg entry may be added, which is used for configuration key-pairs. These
-configurations change kanata's behaviour at a more global level than the other
-configuration entries.
-|#
-
-(defcfg
-  #|
-  This configuration will process all keys pressed inside of kanata, even if
-  they are not mapped in defsrc. This is so that certain actions can activate
-  at the right time for certain input sequences. By default, unmapped keys are
-  not processed through kanata due to a Windows issue related to AltGr. If you
-  use AltGr in your keyboard, you will likely want to follow the simple.kbd
-  file while unmapping lctl and ralt from defsrc.
-  |#
-  process-unmapped-keys yes
+That split is the whole point. This file used to pin
   linux-dev /dev/input/by-path/platform-i8042-serio-0-event-kbd
-)
+which is fw12's internal i8042 keyboard, so the layout could not be used on
+any other machine. If you need a host-specific defcfg knob, add it to that
+host's nix file as extraDefCfg -- not here.
+
+What the layout does: Caps Lock is Caps on tap and Left Ctrl on hold; holding
+Left Alt turns ijkl into arrows, with further tmux-navigation sublayers.
+--------------------------------------------------------------------------- |#
 
 (defsrc
   grv  1    2    3    4    5    6    7    8    9    0    -    =    bspc
