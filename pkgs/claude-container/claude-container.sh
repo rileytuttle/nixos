@@ -224,6 +224,14 @@ if [ "$workdir" = "${HOME%/}" ]; then
     warn "mounting your entire home directory $workspace_mode"
 fi
 
+# A container name that says what it was about at a glance: the basename of
+# the mounted directory, sanitized to what docker/podman accept in --name.
+project_slug="$(basename -- "$workdir" |
+    tr '[:upper:]' '[:lower:]' |
+    sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//')"
+[ -n "$project_slug" ] || project_slug="dir"
+container_name="claude-$project_slug-$$"
+
 # ---- the container's own home -------------------------------------------
 mkdir -p "$home"
 home="$(realpath -e -- "$home")"
@@ -314,7 +322,7 @@ fi
 run=(
     "$runtime" run --rm --init
     --hostname claude-container
-    --name "$prog-$$"
+    --name "$container_name"
     --workdir "$workdir"
     "${tty_args[@]}"
     "${mounts[@]}"
