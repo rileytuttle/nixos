@@ -90,6 +90,12 @@
     acSuspendBehavior = 0;
   };
 
+  # Local docker registry on the network (no TLS), so pulls/pushes to it
+  # aren't rejected for lacking HTTPS.
+  virtualisation.docker.daemon.settings."insecure-registries" = [
+    "192.168.1.12:5050"
+  ];
+
   # Claude Code in a container, from home/claude-container.nix. Enabled here
   # rather than in the module because it needs a container runtime, and
   # ../modules/docker.nix (imported above) is what provides one on this host.

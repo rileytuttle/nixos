@@ -35,5 +35,14 @@
   environment.systemPackages = with pkgs; [
     fuzzel
     wl-clipboard
+
+    # niri (>=25.08) integrates xwayland-satellite out of the box: it just
+    # needs the binary on $PATH, then it creates the X11 socket, exports
+    # $DISPLAY, and spawns it on-demand when an X11 client connects - no KDL
+    # config or systemd unit needed. Without this, GTK/wx apps that fall
+    # back to or require X11 (e.g. bambu-studio) fail to init at all under
+    # niri, while working fine under Plasma Wayland (which always has
+    # KWin's XWayland). See docs/wiki/Xwayland.md in the niri source.
+    xwayland-satellite
   ];
 }

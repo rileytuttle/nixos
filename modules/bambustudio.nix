@@ -17,7 +17,7 @@ let
 
   bambu-studio = pkgs.appimageTools.wrapType2 {
     inherit pname version src;
-    extraPkgs = pkgs: [ pkgs.webkitgtk_4_1 ];
+    extraPkgs = pkgs: [ pkgs.webkitgtk_4_1 pkgs.glib-networking ];
 
     extraInstallCommands = ''
       install -Dm444 ${appimageContents}/*.desktop -t $out/share/applications/
@@ -26,6 +26,18 @@ let
 
       substituteInPlace $out/share/applications/*.desktop \
         --replace-fail 'Exec=AppRun' 'Exec=${pname}'
+
+      # The login webview (webkitgtk) needs GIO's TLS backend to do HTTPS;
+      # the FHS env doesn't wire GIO_EXTRA_MODULES up on its own, so without
+      # this it fails with "TLS support is not available".
+      mv $out/bin/${pname} $out/bin/.${pname}-wrapped
+      cat > $out/bin/${pname} <<'EOF'
+#!/bin/sh
+here="$(dirname "$(readlink -f "$0")")"
+export GIO_EXTRA_MODULES="${pkgs.glib-networking}/lib/gio/modules''${GIO_EXTRA_MODULES:+:}$GIO_EXTRA_MODULES"
+exec "$here/.${pname}-wrapped" "$@"
+EOF
+      chmod +x $out/bin/${pname}
     '';
   };
 in
