@@ -12,6 +12,8 @@ doesn't, the capture window was never the problem.
     bt-kb-send --status           is a phone actually connected?
     bt-kb-send hello world        type a string
     bt-kb-send --key Return       press one key by keysym name
+    bt-kb-send --clipboard        type the host clipboard
+    cmd | bt-kb-send --stdin      type whatever is piped in
 """
 import argparse
 import json
@@ -20,7 +22,8 @@ import socket
 import sys
 import time
 
-from hid_keymap import MODIFIER_MASK, MOD_LEFT_SHIFT, usage_for_char, usage_for_keysym
+from btkb_clip import ClipboardError, read_clipboard
+from hid_keymap import MODIFIER_MASK, reports_for_text, usage_for_keysym
 
 IPC_SOCKET_PATH = os.environ.get("BTKB_IPC", "/run/btkb-hid.sock")
 
@@ -64,19 +67,14 @@ class Sender:
         self.report(mods, [])
 
     def type_text(self, text):
-        unmapped = set()
-        for ch in text:
-            mapped = usage_for_char(ch)
-            if mapped is None:
-                unmapped.add(ch)
-                continue
-            usage, shift = mapped
-            self.tap(usage, MOD_LEFT_SHIFT if shift else 0)
-        # Always release everything, so an interrupted run can't leave a key
-        # held down on the phone.
-        self.report(0, [])
-        if unmapped:
-            print(f"skipped unmapped characters: {sorted(unmapped)}", file=sys.stderr)
+        # \r\n and lone \r both mean Return, so normalize before mapping --
+        # otherwise pasted Windows text types a stray extra newline per line.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        reports, skipped = reports_for_text(text)
+        for mods, keys in reports:
+            self.report(mods, keys)
+        if skipped:
+            print(f"skipped unmapped characters: {sorted(skipped)}", file=sys.stderr)
 
 
 def main():
@@ -89,7 +87,19 @@ def main():
     ap.add_argument("--delay", type=float, default=0.012,
                     help="seconds between reports (default 0.012)")
     ap.add_argument("--newline", action="store_true", help="press Return after the text")
+    ap.add_argument("--clipboard", action="store_true", help="type the host clipboard")
+    ap.add_argument("--stdin", action="store_true", help="type stdin")
     args = ap.parse_args()
+
+    text = " ".join(args.text) if args.text else ""
+    if args.clipboard:
+        try:
+            text += read_clipboard()
+        except ClipboardError as exc:
+            print(f"cannot read clipboard: {exc}", file=sys.stderr)
+            return 2
+    if args.stdin:
+        text += sys.stdin.read()
 
     sender = Sender(IPC_SOCKET_PATH, args.delay)
     status = sender.read_status()
@@ -105,14 +115,14 @@ def main():
     if not linked:
         print(
             "No phone connected: hid_server has no interrupt channel, so every\n"
-            "report would be dropped. Connect the phone to 'Linux Keyboard'\n"
-            "first, then check: journalctl -u bt-kb-hid-server -f",
+            "report would be dropped. Connect the phone to this machine's\n"
+            "keyboard device first, then check: journalctl -u bt-kb-hid-server -f",
             file=sys.stderr,
         )
         return 1
 
-    if args.text:
-        sender.type_text(" ".join(args.text))
+    if text:
+        sender.type_text(text)
     for name in args.key:
         usage = usage_for_keysym(name)
         if usage is None:
@@ -124,8 +134,8 @@ def main():
         sender.tap(usage)
     if args.newline:
         sender.tap(usage_for_keysym("Return"))
-    if not args.text and not args.key and not args.newline:
-        ap.error("nothing to send -- give text, --key, or --status")
+    if not text and not args.key and not args.newline:
+        ap.error("nothing to send -- give text, --clipboard, --stdin, --key, or --status")
     return 0
 
 

@@ -32,6 +32,7 @@ import socket
 import stat
 import sys
 import threading
+from xml.sax.saxutils import escape
 
 import dbus
 import dbus.mainloop.glib
@@ -118,6 +119,19 @@ HIDP_RECV_BUF = 1024
 
 IPC_SOCKET_PATH = os.environ.get("BTKB_IPC", "/run/btkb-hid.sock")
 
+# What the phone shows in its Bluetooth list, and the SDP ServiceName. The
+# hostname makes it obvious *which* machine you are about to let type on your
+# phone, which matters once more than one of them can.
+DEVICE_NAME = os.environ.get("BTKB_NAME") or f"{socket.gethostname()} keyboard"
+
+# Addresses that have actually opened one of our HID channels, appended as
+# they connect. This is what makes `bt-kb-forget` safe: it only clears bonds
+# for devices recorded here, so it can never drop the pairing for headphones,
+# a mouse, or anything else that merely happens to be bonded to this adapter.
+# Nothing but a phone acting as an HID host ever connects to PSM 0x11/0x13.
+STATE_DIR = os.environ.get("BTKB_STATE_DIR", "/var/lib/bt-kb-emulator")
+PEERS_PATH = os.path.join(STATE_DIR, "peers")
+
 # Everything this server needs from the environment -- a bluetoothd without
 # the `input` plugin, root, a free PSM pair -- is static for the lifetime of
 # the boot. Failing on any of it is not something a retry fixes, so exit with
@@ -157,6 +171,13 @@ def trust_device(bus, device_path):
 def watch_for_bonds(bus):
     """Set Trusted on any device that becomes Paired.
 
+    Any device, not just the phone: the bond completes before anything
+    connects to our HID channels, so at that point there is nothing to
+    distinguish the phone by. That matches the agent above, which already
+    auto-accepts every pairing in range while the server runs -- see the
+    security note in README.md. It is also why bt-kb-forget keys off the
+    HID-peer list rather than off Trusted.
+
     Doing this from the agent callbacks alone does not work. With a
     NoInputNoOutput agent and Secure Simple Pairing, a "just works" bond
     needs no user decision, so bluetoothd calls none of RequestConfirmation
@@ -188,6 +209,36 @@ def watch_for_bonds(bus):
         dbus_interface="org.freedesktop.DBus.ObjectManager",
         signal_name="InterfacesAdded",
     )
+
+
+_peers_lock = threading.Lock()
+
+
+def read_peers():
+    try:
+        with open(PEERS_PATH) as f:
+            return [l.strip() for l in f if l.strip()]
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        log.warning("could not read %s: %s", PEERS_PATH, exc)
+        return []
+
+
+def record_peer(address):
+    """Note that `address` connected as an HID host. Best-effort."""
+    try:
+        with _peers_lock:
+            if address in read_peers():
+                return
+            os.makedirs(STATE_DIR, exist_ok=True)
+            with open(PEERS_PATH, "a") as f:
+                f.write(address + "\n")
+        log.info("recorded %s as an HID peer", address)
+    except OSError as exc:
+        # Losing this only costs bt-kb-forget its safety list; it must never
+        # take down the keystroke path.
+        log.warning("could not record peer %s: %s", address, exc)
 
 
 class AutoAcceptAgent(dbus.service.Object):
@@ -280,6 +331,9 @@ def setup_dbus():
     profile_manager = dbus.Interface(bus.get_object(BUS_NAME, "/org/bluez"), PROFILE_MANAGER_IFACE)
     with open(SDP_RECORD_PATH) as f:
         sdp_record_xml = f.read()
+    # escape(): the name comes from the hostname or $BTKB_NAME, and this is
+    # being spliced into an XML attribute that bluetoothd then parses.
+    sdp_record_xml = sdp_record_xml.replace("@DEVICE_NAME@", escape(DEVICE_NAME, {'"': "&quot;"}))
     # Role=server: without it bluetoothd defaults a profile to both roles
     # and would also probe every paired device as an HID *client*, trying to
     # connect outbound to the phone's (nonexistent) HID service. We pass no
@@ -311,11 +365,11 @@ def setup_dbus():
     # rfkill'd or soft-blocked adapter, and the Set() calls below succeed
     # anyway, so without this the server looks healthy but is invisible.
     adapter_props.Set("org.bluez.Adapter1", "Powered", True)
-    adapter_props.Set("org.bluez.Adapter1", "Alias", "Linux Keyboard")
+    adapter_props.Set("org.bluez.Adapter1", "Alias", DEVICE_NAME)
     adapter_props.Set("org.bluez.Adapter1", "Discoverable", True)
     adapter_props.Set("org.bluez.Adapter1", "DiscoverableTimeout", dbus.UInt32(0))
     adapter_props.Set("org.bluez.Adapter1", "Pairable", True)
-    log.info("adapter is now discoverable/pairable as 'Linux Keyboard'")
+    log.info("adapter is now discoverable/pairable as %r", DEVICE_NAME)
 
     loop = GLib.MainLoop()
     threading.Thread(target=loop.run, daemon=True, name="dbus-mainloop").start()
@@ -463,6 +517,7 @@ def control_accept_loop(sock, link: HidLink):
     while True:
         conn, addr = sock.accept()
         log.info("control channel connected from %s", addr)
+        record_peer(addr[0])
         threading.Thread(target=_control_read_loop, args=(conn, addr, link), daemon=True).start()
 
 
@@ -572,6 +627,7 @@ def interrupt_accept_loop(sock, link: HidLink):
     while True:
         conn, addr = sock.accept()
         log.info("interrupt channel connected from %s -- phone is ready for keystrokes", addr)
+        record_peer(addr[0])
         link.set_interrupt(conn)
         threading.Thread(target=_interrupt_read_loop, args=(conn, addr, link), daemon=True).start()
 
@@ -669,7 +725,7 @@ def main():
     threading.Thread(target=control_accept_loop, args=(control_sock, link), daemon=True, name="control-accept").start()
     threading.Thread(target=interrupt_accept_loop, args=(interrupt_sock, link), daemon=True, name="interrupt-accept").start()
 
-    log.info("ready -- pair your phone with 'Linux Keyboard' now")
+    log.info("ready -- pair your phone with %r now", DEVICE_NAME)
     ipc_server_loop(link)  # blocks forever
 
 

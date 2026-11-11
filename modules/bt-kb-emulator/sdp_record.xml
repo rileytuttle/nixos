@@ -66,8 +66,11 @@
     </sequence>
   </attribute>
 
+  <!-- ServiceName. @DEVICE_NAME@ is substituted by hid_server.py at
+       registration time (XML-escaped) so the name follows the host's
+       hostname instead of being baked in here. -->
   <attribute id="0x0100">
-    <text value="Linux Keyboard" />
+    <text value="@DEVICE_NAME@" />
   </attribute>
 
   <attribute id="0x0101">

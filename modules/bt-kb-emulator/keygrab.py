@@ -9,31 +9,46 @@ report.
 
 F12 toggles armed/paused and is never itself forwarded -- it's intercepted
 before reaching the keymap, since Escape (a key you DO want to send to the
-phone) can't double as the "stop capturing" sequence. Losing focus also
-auto-pauses and releases any held keys, so alt-tabbing away mid-keypress
-can't leave a key stuck down on the phone.
+phone) can't double as the "stop capturing" sequence. F11 pastes the host
+clipboard to the phone and is intercepted the same way.
+
+Losing focus auto-pauses and releases any held keys, so alt-tabbing away
+mid-keypress can't leave a key stuck down on the phone -- and regaining
+focus re-arms, so alt-tab away and back is round-trip neutral. An explicit
+F12 pause is remembered: it stays paused until you explicitly unpause.
 """
 import json
 import os
 import socket
 import tkinter as tk
 
-from hid_keymap import MODIFIER_MASK, usage_for_keysym
+from btkb_clip import ClipboardError, read_clipboard
+from hid_keymap import MODIFIER_MASK, reports_for_text, usage_for_keysym
 
 IPC_SOCKET_PATH = os.environ.get("BTKB_IPC", "/run/btkb-hid.sock")
+
+# Gap between the press and release reports of a pasted character. Fast
+# enough not to feel slow, slow enough that phones don't drop characters.
+PASTE_INTERVAL_MS = 8
 
 
 class KeyGrabApp:
     def __init__(self, root):
         self.root = root
         self.armed = False
+        # Distinguishes "paused because you alt-tabbed away" from "paused
+        # because you pressed F12". Only the former auto-resumes on refocus;
+        # an explicit pause has to be explicitly undone, or the window would
+        # start sending again the moment you clicked back into it.
+        self.auto_paused = False
+        self.paste_queue = []
         self.modifier_byte = 0
         self.pressed_usages = []  # ordered, HID boot protocol supports up to 6
         self.sock = None
         self._rxbuf = b""
 
         root.title("bt-kb-emulator")
-        root.geometry("480x260")
+        root.geometry("480x320")
 
         self.status = tk.Label(root, font=("sans-serif", 16, "bold"), pady=20)
         self.status.pack(fill="x")
@@ -49,18 +64,28 @@ class KeyGrabApp:
         self.lastkey = tk.Label(root, font=("monospace", 12), pady=10)
         self.lastkey.pack(fill="x")
 
+        self.paste_button = tk.Button(
+            root, text="Paste clipboard (F11)", command=self.paste_clipboard,
+            highlightthickness=0,
+        )
+        # takefocus=0: the button must never steal focus from the toplevel,
+        # or clicking it would fire <FocusOut> and pause the capture.
+        self.paste_button.config(takefocus=0)
+        self.paste_button.pack(pady=4)
+
         hint = tk.Label(
             root,
-            text="F12 or click the status bar to arm/pause.\n"
-                 "Losing focus auto-pauses and releases held keys.",
+            text="F12 or click the status bar to arm/pause. F11 pastes the clipboard.\n"
+                 "Losing focus auto-pauses; regaining it resumes.",
             font=("sans-serif", 10),
             fg="#666666",
         )
-        hint.pack(fill="x", pady=10)
+        hint.pack(fill="x", pady=6)
 
         root.bind("<KeyPress>", self.on_key_press)
         root.bind("<KeyRelease>", self.on_key_release)
         root.bind("<FocusOut>", self.on_focus_out)
+        root.bind("<FocusIn>", self.on_focus_in)
 
         self.linked = None  # None = unknown, before the first status line
         self._render_state()
@@ -130,11 +155,14 @@ class KeyGrabApp:
             )
 
     def _send_state(self):
+        self._send_report(self.modifier_byte, self.pressed_usages[:6])
+
+    def _send_report(self, mods, keys):
         if self.sock is None:
             self._connect_ipc()
             if self.sock is None:
                 return
-        msg = json.dumps({"mods": self.modifier_byte, "keys": self.pressed_usages[:6]}) + "\n"
+        msg = json.dumps({"mods": mods, "keys": list(keys)[:6]}) + "\n"
         try:
             self.sock.sendall(msg.encode())
         except BlockingIOError:
@@ -155,11 +183,16 @@ class KeyGrabApp:
     def _render_state(self):
         if self.armed:
             self.status.config(text="LIVE -- sending to phone", bg="#2e7d32", fg="white")
+        elif self.auto_paused:
+            self.status.config(text="PAUSED (no focus)", bg="#ef6c00", fg="white")
         else:
             self.status.config(text="PAUSED", bg="#c62828", fg="white")
 
     def toggle_armed(self):
         self.armed = not self.armed
+        # An explicit toggle overrides an auto-pause in both directions: it
+        # either resumes now, or means "stay paused even when I come back".
+        self.auto_paused = False
         if not self.armed:
             self._release_all()
         self._render_state()
@@ -169,15 +202,81 @@ class KeyGrabApp:
         self.pressed_usages = []
         self._send_state()
 
-    def on_focus_out(self, _event):
+    def on_focus_out(self, event):
+        # Tk also reports focus moving between this window's own widgets;
+        # only a change on the toplevel means the window itself lost focus.
+        if event.widget is not self.root:
+            return
         if self.armed:
             self.armed = False
+            self.auto_paused = True
             self._release_all()
             self._render_state()
+
+    def on_focus_in(self, event):
+        if event.widget is not self.root:
+            return
+        if self.auto_paused:
+            self.armed = True
+            self.auto_paused = False
+            self._render_state()
+
+    def paste_clipboard(self):
+        if self.sock is None:
+            self.lastkey.config(text="paste: not connected to hid_server")
+            return
+        if not self.linked:
+            self.lastkey.config(text="paste: no phone connected")
+            return
+        try:
+            text = read_clipboard(self.root)
+        except ClipboardError as exc:
+            self.lastkey.config(text=f"paste failed: {exc}")
+            return
+        # \r\n and lone \r both mean Return; without this a copied Windows
+        # or classic-Mac line ending types a stray second newline or none.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        if not text:
+            self.lastkey.config(text="paste: clipboard is empty")
+            return
+
+        reports, skipped = reports_for_text(text)
+        self.paste_queue = reports
+        note = f"pasting {len(text)} chars"
+        if skipped:
+            note += f" (skipping {''.join(sorted(skipped))})"
+        self.lastkey.config(text=note)
+        self._drain_paste_queue()
+
+    def _drain_paste_queue(self):
+        """Send one queued report per Tk tick.
+
+        Not a loop with sleep(): that would block the mainloop, freezing the
+        window for the length of the paste and leaving no way to see progress
+        or stop it. One report per tick also paces the stream -- a phone that
+        gets 8-byte reports back to back faster than it polls will drop
+        characters.
+        """
+        if not self.paste_queue:
+            # Restore whatever is physically held now, so a paste can't leave
+            # the phone's idea of the keyboard out of sync with this window's.
+            self._send_state()
+            self.paste_button.config(state="normal")
+            return
+        self.paste_button.config(state="disabled")
+        mods, keys = self.paste_queue.pop(0)
+        self._send_report(mods, keys)
+        self.root.after(PASTE_INTERVAL_MS, self._drain_paste_queue)
 
     def on_key_press(self, event):
         if event.keysym == "F12":
             self.toggle_armed()
+            return "break"
+
+        if event.keysym == "F11":
+            # Intercepted locally like F12, so F11 is never forwarded. Works
+            # whether or not capture is armed -- a paste is an explicit act.
+            self.paste_clipboard()
             return "break"
 
         if not self.armed:

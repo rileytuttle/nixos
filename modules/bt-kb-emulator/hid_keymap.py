@@ -1,5 +1,9 @@
 """
-X11/Tk keysym name -> USB HID Usage ID (Keyboard/Keypad page, 0x07).
+Tk keysym -> USB HID Usage ID (Keyboard/Keypad page, 0x07).
+
+Keyed by X keysym name ("period", "exclam"). Tk does not always report the
+name -- Tk 9.0 gives the bare character for printable keys where Tk 8.6 gave
+the name -- so look keys up through usage_for_keysym(), which handles both.
 
 Two separate tables, used differently by keygrab.py:
 
@@ -105,8 +109,30 @@ KEYMAP.update(_NAV)
 
 
 def usage_for_keysym(keysym: str):
-    """Return the HID usage code for a Tk keysym, or None if unmapped."""
-    return KEYMAP.get(keysym) or KEYMAP.get(keysym.lower())
+    """Return the HID usage code for a Tk keysym, or None if unmapped.
+
+    Accepts both spellings Tk might hand us, because it changed. Tk 8.6
+    reported the X keysym NAME for punctuation ("period", "exclam"); Tk 9.0
+    reports the character itself (".", "!"). Letters hid the difference --
+    "a" is both the name and the character -- so against a Tk 9 build this
+    table matched every letter and no punctuation at all, and unmapped keys
+    are dropped silently rather than erroring.
+    """
+    usage = KEYMAP.get(keysym)
+    if usage is not None:
+        return usage
+    usage = KEYMAP.get(keysym.lower())
+    if usage is not None:
+        return usage
+    if len(keysym) == 1:
+        mapped = usage_for_char(keysym)
+        if mapped is not None:
+            # Discard the shift flag on purpose. The caller tracks the
+            # modifier byte from real Shift press/release events; deriving
+            # it from the character too would hold Shift twice for "!" and
+            # leave it stuck when the physical key comes back up.
+            return mapped[0]
+    return None
 
 
 # ASCII character -> physical key, for the non-interactive sender (see
@@ -143,3 +169,26 @@ def usage_for_char(ch: str):
         return (usage, True) if usage is not None else None
     usage = KEYMAP.get(ch)
     return (usage, False) if usage is not None else None
+
+
+def reports_for_text(text: str):
+    """(reports, skipped) for typing `text`, as a list of (modifier_byte, keys).
+
+    Two reports per character, press then release: a HID host treats a key as
+    held until a report says otherwise, so "ll" without the gap arrives as a
+    single 'l'. The trailing all-clear report matters too -- without it the
+    last character stays held down on the phone.
+    """
+    reports = []
+    skipped = set()
+    for ch in text:
+        mapped = usage_for_char(ch)
+        if mapped is None:
+            skipped.add(ch)
+            continue
+        usage, needs_shift = mapped
+        mods = MOD_LEFT_SHIFT if needs_shift else 0
+        reports.append((mods, [usage]))
+        reports.append((mods, []))
+    reports.append((0, []))
+    return reports, skipped

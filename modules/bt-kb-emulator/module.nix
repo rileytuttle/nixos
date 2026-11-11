@@ -6,51 +6,9 @@
 { lib, pkgs, ... }:
 
 let
-  pythonEnv = pkgs.python3.withPackages (ps: [
-    ps.dbus-python
-    ps.pygobject3
-    ps.tkinter
-  ]);
-
-  bt-kb-emulator = pkgs.stdenvNoCC.mkDerivation {
-    pname = "bt-kb-emulator";
-    version = "0.1.0";
-
-    # Only the sources, so a stray __pycache__/ from running the scripts
-    # out of the working tree can't change the derivation hash.
-    src = lib.fileset.toSource {
-      root = ./.;
-      fileset = lib.fileset.unions [
-        ./hid_server.py
-        ./keygrab.py
-        ./btkb_send.py
-        ./hid_keymap.py
-        ./sdp_record.xml
-      ];
-    };
-
-    dontBuild = true;
-    nativeBuildInputs = [ pkgs.makeWrapper ];
-
-    installPhase = ''
-      mkdir -p $out/share/bt-kb-emulator $out/bin
-      cp hid_server.py keygrab.py btkb_send.py hid_keymap.py sdp_record.xml $out/share/bt-kb-emulator/
-
-      makeWrapper ${pythonEnv}/bin/python3 $out/bin/bt-kb-hid-server \
-        --add-flags "$out/share/bt-kb-emulator/hid_server.py" \
-        --chdir "$out/share/bt-kb-emulator"
-
-      makeWrapper ${pythonEnv}/bin/python3 $out/bin/bt-kb-keygrab \
-        --add-flags "$out/share/bt-kb-emulator/keygrab.py" \
-        --chdir "$out/share/bt-kb-emulator"
-
-      # GUI-free sender, for telling "the Bluetooth link is broken" apart
-      # from "the capture window isn't seeing my keys".
-      makeWrapper ${pythonEnv}/bin/python3 $out/bin/bt-kb-send \
-        --add-flags "$out/share/bt-kb-emulator/btkb_send.py" \
-        --chdir "$out/share/bt-kb-emulator"
-    '';
-  };
+  # Shared with home.nix (home-manager on a foreign distro), which installs
+  # the same programs but has bt-kb-setup write the system units imperatively.
+  bt-kb-emulator = pkgs.callPackage ./package.nix { };
 in
 {
   hardware.bluetooth.enable = true;
@@ -106,8 +64,26 @@ in
   # hand right before pairing, then run the capture window as yourself:
   #   sudo systemctl start bt-kb-hid-server
   #   bt-kb-keygrab
+  # Clearing a stale bond is `bt-kb-forget` (from the package above):
+  #   bt-kb-forget --list       what we hold, and what it won't touch
+  #   bt-kb-forget --restart    clear our half, restart the server
+  # It only ever clears bonds for devices that actually connected to our HID
+  # channels, recorded in /var/lib/bt-kb-emulator/peers.
   systemd.services.bt-kb-hid-server = {
     description = "Bluetooth HID-device keyboard emulator server";
+
+    # A `nixos-rebuild switch` must NOT restart this. Restarting closes the
+    # L2CAP sockets under a connected phone, the phone drops off, and the
+    # usual way out of that is forgetting the device on the phone -- which
+    # leaves the bond half-gone (removed there, still here) and the next
+    # pair attempt refused. So every unrelated rebuild could cost a re-pair.
+    #
+    # Nothing is lost by leaving the old process running: the service is
+    # started by hand right before pairing anyway (see below), so restarting
+    # it to pick up a new build is a deliberate act:
+    #   sudo systemctl restart bt-kb-hid-server
+    restartIfChanged = false;
+    stopIfChanged = false;
     # dbus.service as well as bluetooth.service: the server talks to
     # bluetoothd over the system bus before it binds anything, so an
     # unavailable bus is an immediate hard failure rather than a retry.
