@@ -20,6 +20,7 @@
     ../modules/docker.nix
     ../modules/kicad.nix
     ../modules/tdarr-node.nix
+    ../modules/bt-kb-emulator/module.nix
   ];
 
   networking.hostName = "fw12";  # whatever you want
