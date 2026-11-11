@@ -109,6 +109,18 @@
     aliases = [ "claude-c" "claude" ];
   };
 
+  # Escape hatch out of the container above: runs the real Claude Code
+  # binary directly on this host, no container/sandbox around it. Named
+  # away from `claude`/`claude-c` on purpose -- those stay pointed at the
+  # container so the sandboxed path remains the default, and this one is
+  # only reached for the rare case that genuinely needs host-level access
+  # (e.g. a real nixos-rebuild, or touching hardware the container can't see).
+  home-manager.users.rileytuttle.home.packages = [
+    (pkgs.writeShellScriptBin "claude-raw" ''
+      exec ${pkgs.claude-code}/bin/claude "$@"
+    '')
+  ];
+
   services.power-profiles-daemon.enable = false;
   services.thermald.enable = true;
 
