@@ -202,9 +202,12 @@
         rt-dellpromax-24 = self.homeConfigurations.rt-dellpromax-24.activationPackage;
       };
 
-      # `nix fmt` on this repo. nixfmt 1.4 is the RFC 166 style; the package
-      # formerly known as nixfmt-rfc-style is now just `nixfmt`.
-      formatter.${system} = pkgs.nixfmt;
+      # `nix fmt` on this repo. nixfmt-tree is a treefmt wrapper around
+      # nixfmt (RFC 166 style; formerly nixfmt-rfc-style) that discovers
+      # every git-tracked .nix file itself -- plain `pkgs.nixfmt` only
+      # formats paths you pass it, and `nix fmt .` (passing the repo root)
+      # is deprecated.
+      formatter.${system} = pkgs.nixfmt-tree;
 
       nixosConfigurations = {
 
