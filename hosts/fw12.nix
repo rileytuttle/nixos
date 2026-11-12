@@ -1,4 +1,9 @@
-{ config, pkgs, inputs, ... }:
+{
+  config,
+  pkgs,
+  inputs,
+  ...
+}:
 
 {
   # Pull in the hardware scan NixOS generated at install time
@@ -23,7 +28,7 @@
     ../modules/bt-kb-emulator/module.nix
   ];
 
-  networking.hostName = "fw12";  # whatever you want
+  networking.hostName = "fw12"; # whatever you want
 
   # WiFi is handled by NetworkManager (already enabled in common.nix)
   # but laptops often need firmware
@@ -106,7 +111,10 @@
   # ever lands here it gets picked up first, and then nothing has to chown.
   home-manager.users.rileytuttle.programs.claude-container = {
     enable = true;
-    aliases = [ "claude-c" "claude" ];
+    aliases = [
+      "claude-c"
+      "claude"
+    ];
   };
 
   # Escape hatch out of the container above: runs the real Claude Code
@@ -156,7 +164,7 @@
   ];
 
   nixpkgs.config.permittedInsecurePackages = [
-      "electron-39.8.10"
+    "electron-39.8.10"
   ];
 
   programs.kdeconnect.enable = true;

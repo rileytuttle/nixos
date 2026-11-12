@@ -56,7 +56,10 @@ in
   # and minor device class bits, so the service class bits are left zero.
   hardware.bluetooth.settings.General.Class = "0x000540";
 
-  environment.systemPackages = [ bt-kb-emulator pkgs.bluez ];
+  environment.systemPackages = [
+    bt-kb-emulator
+    pkgs.bluez
+  ];
 
   # Not started at boot, on purpose: the pairing agent auto-accepts any
   # nearby pairing request for as long as the adapter is discoverable, so
@@ -87,7 +90,10 @@ in
     # dbus.service as well as bluetooth.service: the server talks to
     # bluetoothd over the system bus before it binds anything, so an
     # unavailable bus is an immediate hard failure rather than a retry.
-    after = [ "bluetooth.service" "dbus.service" ];
+    after = [
+      "bluetooth.service"
+      "dbus.service"
+    ];
     requires = [ "bluetooth.service" ];
 
     # Intentionally unsandboxed: raw AF_BLUETOOTH L2CAP sockets and the

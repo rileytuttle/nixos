@@ -1,4 +1,9 @@
-{ lib, pkgs, inputs, ... }:
+{
+  lib,
+  pkgs,
+  inputs,
+  ...
+}:
 let
   # Same mesa wrapper DMS runs under (see home/niri-generic-linux.nix):
   # OpenSCAD's Qt/OpenGL preview links nix's libEGL and can't see Ubuntu's
@@ -34,8 +39,7 @@ in
 
   # Standalone home-manager, so core.nix's NixOS `rebuild` alias (which shells
   # out to nixos-rebuild) is wrong here. It is mkDefault there; this wins.
-  programs.bash.shellAliases.rebuild =
-    "home-manager switch --flake $HOME/nixos#rt-dellpromax-24";
+  programs.bash.shellAliases.rebuild = "home-manager switch --flake $HOME/nixos#rt-dellpromax-24";
 
   # home-manager owns ~/.bashrc from here on, which drops the handful of
   # things Ubuntu's stock one provided. These are the ones worth keeping;
@@ -57,7 +61,11 @@ in
     genericName = "3D CAD Modeller (nightly)";
     exec = "openscad %f";
     icon = "openscad";
-    categories = [ "Graphics" "3DGraphics" "Engineering" ];
+    categories = [
+      "Graphics"
+      "3DGraphics"
+      "Engineering"
+    ];
     mimeType = [ "application/x-openscad" ];
   };
 
@@ -70,7 +78,10 @@ in
   # PATH.
   programs.claude-container = {
     enable = true;
-    aliases = [ "claude-c" "claude" ];
+    aliases = [
+      "claude-c"
+      "claude"
+    ];
   };
 
   home.sessionVariables = {

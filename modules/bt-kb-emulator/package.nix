@@ -1,14 +1,15 @@
 # The programs, with no opinion about how the server gets started. Shared by
 # module.nix (NixOS, declarative system service) and home.nix (home-manager
 # on a foreign distro, where bt-kb-setup installs the unit imperatively).
-{ lib
-, stdenvNoCC
-, python3
-, makeWrapper
-, bluez
-, systemd
-, wl-clipboard
-, xclip
+{
+  lib,
+  stdenvNoCC,
+  python3,
+  makeWrapper,
+  bluez,
+  systemd,
+  wl-clipboard,
+  xclip,
 }:
 
 let
@@ -20,7 +21,10 @@ let
 
   # wl-paste for Wayland, xclip for X11 -- btkb_clip.py picks whichever the
   # session actually has, and falls back to Tk's own clipboard if neither.
-  clipboardTools = lib.makeBinPath [ wl-clipboard xclip ];
+  clipboardTools = lib.makeBinPath [
+    wl-clipboard
+    xclip
+  ];
 in
 stdenvNoCC.mkDerivation {
   pname = "bt-kb-emulator";

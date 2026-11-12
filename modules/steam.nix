@@ -1,13 +1,18 @@
 # modules/steam.nix
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   programs.steam = {
     enable = true;
-    remotePlay.openFirewall = true;          # Steam Remote Play
-    dedicatedServer.openFirewall = true;       # Source dedicated servers (LAN hosting)
+    remotePlay.openFirewall = true; # Steam Remote Play
+    dedicatedServer.openFirewall = true; # Source dedicated servers (LAN hosting)
     localNetworkGameTransfers.openFirewall = true; # Steam Local Network Game Transfers
-    gamescopeSession.enable = true;            # Gamescope as a session/compositor option
+    gamescopeSession.enable = true; # Gamescope as a session/compositor option
   };
 
   # Enable GameMode for performance optimizations
@@ -20,7 +25,8 @@
   };
 
   # Allow unfree packages required by Steam
-  nixpkgs.config.allowUnfreePredicate = pkg:
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
     builtins.elem (lib.getName pkg) [
       "steam"
       "steam-original"
@@ -29,6 +35,6 @@
     ];
 
   environment.systemPackages = with pkgs; [
-    protonup-qt  # easy install of GE-Proton etc.
+    protonup-qt # easy install of GE-Proton etc.
   ];
 }

@@ -1,5 +1,10 @@
 # system config module (e.g. modules/deskflow.nix), imported per-host
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   # Not an overlay: nothing else in the tree needs it, same as

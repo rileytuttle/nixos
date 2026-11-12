@@ -69,13 +69,17 @@
       "use_ino"
       "cache.files=partial"
       "dropcacheonclose=true"
-      "category.create=mfs"   # new files go to disk with most free space
-      "moveonenospc=true"     # move file to another disk if one fills up
+      "category.create=mfs" # new files go to disk with most free space
+      "moveonenospc=true" # move file to another disk if one fills up
       "minfreespace=50G"
     ];
     # Ensures systemd mounts disk1 (and disk2, disk3... once added) before
     # attempting the merged mount.
-    depends = [ "/mnt/disk1" "/mnt/disk2" "/mnt/disk3" ];
+    depends = [
+      "/mnt/disk1"
+      "/mnt/disk2"
+      "/mnt/disk3"
+    ];
   };
 
   # Shared group so services (jellyfin, *arr stack, etc.) can read/write

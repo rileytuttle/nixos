@@ -34,7 +34,11 @@
 
 pkgs.writeShellApplication {
   name = "xe-engine-util";
-  runtimeInputs = with pkgs; [ coreutils gawk gnugrep ];
+  runtimeInputs = with pkgs; [
+    coreutils
+    gawk
+    gnugrep
+  ];
   text = ''
     interval=2
     pid=""

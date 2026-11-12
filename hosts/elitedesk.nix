@@ -1,4 +1,9 @@
-{ config, pkgs, inputs, ... }:
+{
+  config,
+  pkgs,
+  inputs,
+  ...
+}:
 
 {
   # Pull in the hardware scan NixOS generated at install time
@@ -11,7 +16,7 @@
     ../modules/remote-backup.nix
   ];
 
-  networking.hostName = "elitedesk";  # whatever you want
+  networking.hostName = "elitedesk"; # whatever you want
 
   services.remoteBackup = {
     enable = true;
@@ -30,35 +35,35 @@
       # Deterministic placement: bypass the mergerfs pool, write straight
       # to one physical branch.
       tuttle_family_documents = {
-        source      = "/mnt/user/TuttleFamily";
+        source = "/mnt/user/TuttleFamily";
         destination = "/mnt/storage/backup/TuttleFamily";
       };
 
       courtney_riley_photos = {
-        source      = "/mnt/user/CourtneyRileyPhotos";
+        source = "/mnt/user/CourtneyRileyPhotos";
         destination = "/mnt/storage/backup/CourtneyRileyPhotos";
       };
 
       books = {
-        source      = "/mnt/user/starr_media/media/books";
+        source = "/mnt/user/starr_media/media/books";
         destination = "/mnt/storage/starr_media/media/books";
       };
 
       library = {
-        source      = "/mnt/user/library";
+        source = "/mnt/user/library";
         destination = "/mnt/storage/library";
       };
       movies = {
-        source      = "/mnt/user/starr_media/media/movies";
+        source = "/mnt/user/starr_media/media/movies";
         destination = "/mnt/disk2/starr_media/media/movies";
-        maxSize     = "100G";
+        maxSize = "100G";
       };
       tv = {
-        source      = "/mnt/user/starr_media/media/tv";
+        source = "/mnt/user/starr_media/media/tv";
         destination = "/mnt/disk3/starr_media/media/tv";
-        maxSize     = "100G";
+        maxSize = "100G";
       };
-   };
+    };
   };
 
   nixpkgs.config.permittedInsecurePackages = [

@@ -63,25 +63,22 @@
   # Unpacks a nested comic release (zip -> split RAR4 -> PDF/CBR/CBZ/images)
   # into a .cbz. Pure stdlib by design -- no unrar or poppler -- so there are
   # no libraries to declare.
-  comic2cbz =
-    pkgs.writers.writePython3Bin "comic2cbz"
-      {
-        libraries = [ ];
-        # Style-only codes, matching how the script is written throughout.
-        # The F-codes (undefined names, unused imports) stay ON -- they are
-        # the reason for checking at all, and they already earned it: flake8
-        # caught an unused `import sys` here, now removed.
-        flakeIgnore = [
-          "E127" # continuation line over-indented
-          "E265" # block comment should start with '# '
-          "E302" # expected 2 blank lines
-          "E305" # expected 2 blank lines after a def
-          "E401" # multiple imports on one line
-          "E501" # line too long
-          "E731" # lambda assigned to a name
-          "W503" # line break before binary operator
-          "W504" # line break after binary operator
-        ];
-      }
-      (builtins.readFile ./scripts/comic2cbz);
+  comic2cbz = pkgs.writers.writePython3Bin "comic2cbz" {
+    libraries = [ ];
+    # Style-only codes, matching how the script is written throughout.
+    # The F-codes (undefined names, unused imports) stay ON -- they are
+    # the reason for checking at all, and they already earned it: flake8
+    # caught an unused `import sys` here, now removed.
+    flakeIgnore = [
+      "E127" # continuation line over-indented
+      "E265" # block comment should start with '# '
+      "E302" # expected 2 blank lines
+      "E305" # expected 2 blank lines after a def
+      "E401" # multiple imports on one line
+      "E501" # line too long
+      "E731" # lambda assigned to a name
+      "W503" # line break before binary operator
+      "W504" # line break after binary operator
+    ];
+  } (builtins.readFile ./scripts/comic2cbz);
 }

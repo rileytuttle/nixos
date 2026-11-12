@@ -31,7 +31,13 @@
 
 pkgs.writeShellApplication {
   name = "refresh-hardware-config";
-  runtimeInputs = with pkgs; [ coreutils diffutils git gnused nixos-install-tools ];
+  runtimeInputs = with pkgs; [
+    coreutils
+    diffutils
+    git
+    gnused
+    nixos-install-tools
+  ];
   text = ''
     check_only=false
     force=false

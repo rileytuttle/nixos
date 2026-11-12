@@ -8,7 +8,7 @@
   environment.systemPackages = with pkgs; [
     libinput
     evtest
-    kanata   # for `kanata --list`, to see what is grabbable
+    kanata # for `kanata --list`, to see what is grabbable
   ];
 
   services.kanata = {
@@ -120,7 +120,10 @@
   systemd.services.kanata-tablet-watcher = {
     description = "Stop/start kanata based on tablet mode switch";
     wantedBy = [ "multi-user.target" ];
-    after = [ "kanata-keyboard.service" "systemd-udevd.service" ];
+    after = [
+      "kanata-keyboard.service"
+      "systemd-udevd.service"
+    ];
 
     serviceConfig = {
       ExecStart = "/etc/kanata-tablet-watcher.sh";

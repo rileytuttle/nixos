@@ -54,7 +54,15 @@
 let
   smart-sleep = pkgs.writeShellApplication {
     name = "smart-sleep";
-    runtimeInputs = with pkgs; [ coreutils findutils gnugrep gnused util-linux libnotify systemd ];
+    runtimeInputs = with pkgs; [
+      coreutils
+      findutils
+      gnugrep
+      gnused
+      util-linux
+      libnotify
+      systemd
+    ];
     text = ''
       shopt -s nullglob
 
@@ -262,7 +270,12 @@ let
   # string (e.g. "button/lid LID close") as arguments.
   smart-sleep-lid = pkgs.writeShellApplication {
     name = "smart-sleep-lid";
-    runtimeInputs = with pkgs; [ coreutils gnugrep systemd smart-sleep ];
+    runtimeInputs = with pkgs; [
+      coreutils
+      gnugrep
+      systemd
+      smart-sleep
+    ];
     text = ''
       shopt -s nullglob
 
@@ -292,7 +305,8 @@ let
       exec smart-sleep suspend-then-hibernate
     '';
   };
-in {
+in
+{
   environment.systemPackages = [ smart-sleep ];
 
   # Lid close goes through smart-sleep (see top of file), not logind.
@@ -327,7 +341,10 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ coreutils util-linux ];
+    path = with pkgs; [
+      coreutils
+      util-linux
+    ];
 
     # Wall clock and CLOCK_BOOTTIME (/proc/uptime), so the two can be
     # differenced on resume -- see preStop.

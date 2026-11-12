@@ -23,7 +23,10 @@ let
   balena-plus = inputs.balena-plus.packages.${pkgs.stdenv.hostPlatform.system}.balena-plus;
 in
 {
-  home.packages = [ pkgs.balena-cli balena-plus ];
+  home.packages = [
+    pkgs.balena-cli
+    balena-plus
+  ];
 
   # Emits the `balena` alias plus both completion sources -- the wrapper's own
   # and balena-cli's oclif-generated one, which it generates on first run and

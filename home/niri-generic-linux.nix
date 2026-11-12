@@ -52,11 +52,11 @@ in
 
   home.packages = with pkgs; [
     # These two were environment.systemPackages in modules/niri.nix.
-    fuzzel        # Mod+D
+    fuzzel # Mod+D
     wl-clipboard
 
-    polkit_gnome  # for the user service below
-    jq            # toggle-kakoune-notes.sh needs it (normally from home/default.nix)
+    polkit_gnome # for the user service below
+    jq # toggle-kakoune-notes.sh needs it (normally from home/default.nix)
   ];
 
   # Ported from modules/niri.nix. Note home-manager wants capitalised
@@ -73,7 +73,10 @@ in
     Unit = {
       Description = "polkit-gnome-authentication-agent-1";
       PartOf = [ "graphical-session.target" ];
-      After = [ "graphical-session.target" "niri.service" ];
+      After = [
+        "graphical-session.target"
+        "niri.service"
+      ];
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {

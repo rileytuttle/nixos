@@ -222,8 +222,8 @@ let
 in
 {
   home.packages = [
-    pkgs.kanata     # `kanata --list` to see grabbable devices
-    hostSetup       # `kanata-host-setup` / `kanata-host-setup --check`
+    pkgs.kanata # `kanata --list` to see grabbable devices
+    hostSetup # `kanata-host-setup` / `kanata-host-setup --check`
   ];
 
   # Also linked into place under its default name so a bare `kanata` in a
@@ -239,7 +239,7 @@ in
     };
 
     Service = {
-      Type = "notify";   # kanata speaks sd_notify; no sleep-and-hope needed
+      Type = "notify"; # kanata speaks sd_notify; no sleep-and-hope needed
       # The store path, not ~/.config/kanata/kanata.kbd: that symlink is
       # rewritten mid-switch, and a restart racing the rewrite would read a
       # half-swapped file. home-manager restarts this unit when the path

@@ -39,7 +39,12 @@
 #
 # Adding another folder later is just another attribute under `jobs`.
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
@@ -49,9 +54,12 @@ let
   sshOpts = "-i ${cfg.sshKeyFile} -o StrictHostKeyChecking=accept-new -o BatchMode=yes";
 
   # --- sync job: fast, mtime+size based, actually transfers data ---
-  mkSyncScript = name: job:
-    let hasLimit = job.maxSize != null;
-    in pkgs.writeShellScript "backup-${name}.sh" ''
+  mkSyncScript =
+    name: job:
+    let
+      hasLimit = job.maxSize != null;
+    in
+    pkgs.writeShellScript "backup-${name}.sh" ''
       set -uo pipefail
       LOG="$(mktemp)"
       FILELIST="$(mktemp)"
@@ -60,14 +68,14 @@ let
       mkdir -p "${job.destination}"
 
       ${optionalString hasLimit ''
-      LIMIT_BYTES=$(${pkgs.coreutils}/bin/numfmt --from=iec ${job.maxSize})
+        LIMIT_BYTES=$(${pkgs.coreutils}/bin/numfmt --from=iec ${job.maxSize})
 
-      ${pkgs.openssh}/bin/ssh ${sshOpts} "${cfg.remoteUser}@${cfg.remoteHost}" \
-        "find '${job.source}' -type f -printf '%T@\t%s\t%P\n'" \
-        | sort -t$'\t' -k1,1 -rn \
-        | ${pkgs.gawk}/bin/awk -F'\t' -v limit="$LIMIT_BYTES" \
-            '{ total += $2; if (total <= limit) print $3 }' \
-        > "$FILELIST"
+        ${pkgs.openssh}/bin/ssh ${sshOpts} "${cfg.remoteUser}@${cfg.remoteHost}" \
+          "find '${job.source}' -type f -printf '%T@\t%s\t%P\n'" \
+          | sort -t$'\t' -k1,1 -rn \
+          | ${pkgs.gawk}/bin/awk -F'\t' -v limit="$LIMIT_BYTES" \
+              '{ total += $2; if (total <= limit) print $3 }' \
+          > "$FILELIST"
       ''}
 
       ${pkgs.rsync}/bin/rsync -az --partial --partial-dir=.rsync-partial \
@@ -90,7 +98,8 @@ let
     '';
 
   # --- verify job: slow, full checksum, dry-run only, never transfers ---
-  mkVerifyScript = name: job:
+  mkVerifyScript =
+    name: job:
     pkgs.writeShellScript "verify-backup-${name}.sh" ''
       set -uo pipefail
       LOG="$(mktemp)"
@@ -201,7 +210,8 @@ let
     };
   };
 
-in {
+in
+{
   options.services.remoteBackup = {
     enable = mkEnableOption "periodic rsync backups from a remote host";
 

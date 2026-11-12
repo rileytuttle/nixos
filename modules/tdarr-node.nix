@@ -29,16 +29,21 @@
 #   apiKey=tapi_...
 #   EOF
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   ###########################################################################
   # Tunables -- everything you are likely to change lives in this block.
   ###########################################################################
 
-  serverIP   = "192.168.1.12";
+  serverIP = "192.168.1.12";
   serverPort = 8266;
-  serverURL  = "http://${serverIP}:${toString serverPort}";
+  serverURL = "http://${serverIP}:${toString serverPort}";
 
   # The node runs its own API that the *server* polls, so this has to be open
   # in the firewall (see networking.firewall below).
@@ -60,14 +65,14 @@ let
 
   # Where those two live on this machine.
   shareMount = "/mnt/mahi/starr_media";
-  mediaDir   = "${shareMount}/media";
-  localCache = "/var/cache/tdarr";   # transcode scratch, local NVMe on purpose
-  stateDir   = "/var/lib/tdarr-node";
+  mediaDir = "${shareMount}/media";
+  localCache = "/var/cache/tdarr"; # transcode scratch, local NVMe on purpose
+  stateDir = "/var/lib/tdarr-node";
 
   # The container runs as this uid/gid and the CIFS mount presents files as it.
   # Keep the two in step or the node can read the share but not write to it.
-  puid = 1000;   # rileytuttle
-  pgid = 100;    # users
+  puid = 1000; # rileytuttle
+  pgid = 100; # users
 
   # Belt and braces for /dev/dri. renderD128 is already world-rw on this host,
   # so this mostly guards against a future udev rule tightening it.
@@ -187,7 +192,12 @@ in
     pkgs.cifs-utils
     (pkgs.writeShellApplication {
       name = "tdarr-node";
-      runtimeInputs = with pkgs; [ docker curl util-linux coreutils ];
+      runtimeInputs = with pkgs; [
+        docker
+        curl
+        util-linux
+        coreutils
+      ];
       text = ''
         compose=${composeFile}
         server=${serverURL}

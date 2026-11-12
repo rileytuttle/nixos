@@ -1,5 +1,10 @@
 # modules/transmission.nix
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   # The RPC interface is deliberately loopback-only. It used to bind

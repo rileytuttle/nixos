@@ -8,8 +8,7 @@ let
 in
 {
   networking.extraHosts = ''
-    ${builtins.concatStringsSep "\n"
-      (map (alias: "127.0.0.1 ${alias}") (builtins.attrNames proxyMap))}
+    ${builtins.concatStringsSep "\n" (map (alias: "127.0.0.1 ${alias}") (builtins.attrNames proxyMap))}
   '';
 
   services.nginx = {
@@ -17,7 +16,12 @@ in
     recommendedProxySettings = true;
 
     virtualHosts = builtins.mapAttrs (alias: target: {
-      listen = [ { addr = "127.0.0.1"; port = 80; } ];
+      listen = [
+        {
+          addr = "127.0.0.1";
+          port = 80;
+        }
+      ];
       locations."/" = {
         proxyPass = "http://${target}";
         proxyWebsockets = true;

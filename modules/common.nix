@@ -1,4 +1,9 @@
-{ lib, config, pkgs, ... }:
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
 
 {
 
@@ -8,7 +13,10 @@
 
   # Nix settings
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
     auto-optimise-store = true;
   };
 
@@ -40,7 +48,12 @@
   # Your user account
   users.users.rileytuttle = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "video" "audio" ];
+    extraGroups = [
+      "wheel"
+      "networkmanager"
+      "video"
+      "audio"
+    ];
   };
 
   # Global packages available to all users
@@ -56,7 +69,6 @@
     noto-fonts
     noto-fonts-color-emoji
   ];
-
 
   # Allow unfree packages (needed for things like VSCode, nvidia drivers)
   nixpkgs.config.allowUnfree = true;

@@ -29,7 +29,11 @@
       intel-media-sdk
     ];
   };
-  users.users.jellyfin.extraGroups = [ "media" "video" "render" ];
+  users.users.jellyfin.extraGroups = [
+    "media"
+    "video"
+    "render"
+  ];
 
   # -- NVIDIA (NVENC/NVDEC) --
   # hardware.nvidia.modesetting.enable = true;
