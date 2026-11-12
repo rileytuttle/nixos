@@ -309,6 +309,12 @@
         # module puts on PATH -- run it once after the first switch.
         ./home/kanata-generic-linux.nix
         ./home/balena.nix
+        # oakctl (Luxonis' OAK4/RVC4 CLI) from upstream's installer rather
+        # than nixpkgs, which is several minor versions behind -- see the
+        # module header. It supplies the `oakctl-install` entry point plus
+        # the ~/.local/bin PATH entry the installer is no longer allowed to
+        # write into ~/.bashrc itself.
+        ./home/oakctl-generic-linux.nix
         ./home/claude-container.nix
       ];
     };
