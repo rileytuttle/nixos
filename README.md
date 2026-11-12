@@ -41,7 +41,9 @@ The configuration is organized as follows:
 ├── pkgs/                  # Personal tools, exposed as flake packages
 │   ├── scripts.nix        # shic, sync-ipod, git-clear, comic2cbz
 │   ├── scripts/           # the sources those are built from
-│   └── claude-container/  # Claude Code in a container with its own nix store
+│   ├── claude-container/  # Claude Code in a container with its own nix store
+│   └── niri-kdeconnect-portal/  # RemoteDesktop portal backend niri lacks
+│                          #   (deskflow's input path; see modules/deskflow.nix)
 ├── dotfiles/              # Plain config files delivered by home-manager
 │   ├── kakrc              # Kakoune config
 │   ├── tmux.conf          # tmux config
@@ -386,7 +388,10 @@ The configuration includes several custom modules:
 - `steam.nix`: Steam gaming platform integration
 - `nzbget.nix`: NZBGet Usenet client
 - `bambustudio.nix`: Bambu Studio 3D printer software
-- `deskflow.nix`: DeskFlow keyboard/mouse sharing
+- `deskflow.nix`: DeskFlow keyboard/mouse sharing. Under niri this also pulls in
+  pkgs/niri-kdeconnect-portal, because a deskflow *client* injects input through
+  the RemoteDesktop portal and niri ships no backend for it -- without the
+  bridge the client dies on `CreateSession failed` and never connects
 - `local-nginx.nix`: Local nginx web server
 - `android-tools.nix`: Android development tools
 
