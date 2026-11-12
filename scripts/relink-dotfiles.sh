@@ -95,14 +95,27 @@ done
 head_ "1. paths home-manager owns (#$HOST)"
 
 TARGETS=()
+EVAL_ERR="$(mktemp)"
+trap 'rm -f "$EVAL_ERR"' EXIT
 EVAL_OUT="$(nix eval --json \
     "${REPO}#homeConfigurations.${HOST}.config.home.file" \
-    --apply 'fs: builtins.map (v: v.target) (builtins.attrValues fs)' 2>&1)"
+    --apply 'fs: builtins.map (v: v.target) (builtins.attrValues fs)' 2>"$EVAL_ERR")"
+EVAL_RC=$?
 
-# A successful eval prints a JSON array; any failure prints a nix error, so
-# the first character is the whole test. ($? would have to be read before
-# the `[` below runs, and that reads worse than this does.)
-if [ "${EVAL_OUT:0:1}" = "[" ]; then
+# stdout and stderr are kept apart on purpose, and the exit code is what
+# decides. Both were merged with 2>&1 and judged by `[ "${EVAL_OUT:0:1}" =
+# "[" ]`, on the premise that a successful eval prints a JSON array and
+# nothing else. It does not: nix writes warnings to stderr, and
+#
+#   warning: Git tree '/home/rileytuttle/nixos' is dirty
+#
+# is one it emits on every uncommitted tree. That leading `w` failed the
+# test, so the array that followed it on the next line was thrown away and
+# the stale FALLBACK_TARGETS list silently took over -- in exactly the
+# situation this script exists for, since the tree is dirty whenever you are
+# mid-change. The first-character check stays as a second gate, for an eval
+# that somehow exits 0 without printing a list.
+if [ "$EVAL_RC" -eq 0 ] && [ "${EVAL_OUT:0:1}" = "[" ]; then
     while IFS= read -r t; do
         [ -n "$t" ] && TARGETS+=("$t")
     done < <(printf '%s' "$EVAL_OUT" | tr -d '[]"' | tr ',' '\n')
@@ -110,7 +123,7 @@ if [ "${EVAL_OUT:0:1}" = "[" ]; then
 else
     printf '  \033[33mwarn\033[0m    nix eval failed; using the built-in fallback list,\n'
     note "which may be out of date. The error was:"
-    printf '%s\n' "$EVAL_OUT" | sed 's/^/          | /' | tail -5
+    sed 's/^/          | /' "$EVAL_ERR" | tail -5
     TARGETS=("${FALLBACK_TARGETS[@]}")
 fi
 
