@@ -23,6 +23,7 @@ The configuration is organized as follows:
 ├── scripts/
 │   ├── install-niri-from-source.sh  # Builds+installs niri system-wide (rt-dellpromax-24)
 │   ├── debug-dms-bar.sh   # Diagnoses a missing DMS bar/launcher (rt-dellpromax-24)
+│   ├── relink-dotfiles.sh # Clears old ~/Configs links out of home-manager's way
 │   └── fix-nix-pam-unlock.sh  # Lets the DMS lock screen unlock (rt-dellpromax-24)
 ├── modules/               # Reusable configuration modules
 │   ├── common.nix         # Common settings for all hosts
@@ -169,6 +170,18 @@ fw12. The system layer fw12 gets from `modules/niri.nix` has no equivalent here,
   that links that path to Ubuntu's `/usr/sbin/unix_chkpwd`. Nix's linux-pam also
   can't parse Ubuntu's `@include` lines, so the script writes a self-contained
   `/etc/pam.d/dankshell`, which DMS prefers over `login`.
+- **Leftovers from the old `~/Configs` dotfiles repo block activation.** Those
+  paths are home-manager's now. A *dangling* link is harmless (`linkGeneration`
+  relinks it), but a link that still resolves, a real file, or a **symlinked
+  parent directory** (`~/.config/niri` → `~/Configs/niri`, the usual dotfiles
+  layout) makes `home-manager switch` abort having changed nothing — so the
+  niri config, the DMS settings, the `environment.d` PATH file and the
+  `~/.local/bin/dms` shim all stay missing, and niri comes up with no bar.
+  `scripts/relink-dotfiles.sh` reports what is in the way (read-only; `--apply`
+  moves it to a timestamped backup under `~/.local/state/relink-dotfiles/`).
+  It reads the path list out of the flake, so it cannot drift. Do **not**
+  symlink these paths at `~/nixos` by hand — that is the same collision, made
+  permanent.
 - **`~/.config/niri/local.kdl` is deliberately unmanaged**, same as on fw12 — it's
   the hand-edited scratch file pulled in by the `include optional=true "local.kdl"`
   line at the end of `home/niri-config.kdl`. Host-specific display/output settings
