@@ -1,13 +1,13 @@
 # Portable user environment: shell, git, editor config, CLI tools.
 #
-# MUST NOT assume NixOS. fw12 and elitedesk get this via home/default.nix as
-# NixOS home-manager users; the intent is that rt-dellpromax-24 (Ubuntu, nix
-# as a plain package manager) can import this file directly once its manual
-# installs are retired. So: nothing here may reference a NixOS module, and
-# identity (home.username / homeDirectory / stateVersion) is deliberately
-# left to the importing host rather than set here -- those differ per machine
-# and would collide.
+# MUST NOT assume NixOS. fw12, elitedesk and rt-dellpromax-24 (Ubuntu, nix as
+# a plain package manager) all import this file. So: nothing here may
+# reference a NixOS module, and identity (home.username / homeDirectory /
+# stateVersion, and git's user.email) is deliberately left to the importing
+# host or profile rather than set here -- those differ per machine and would
+# collide.
 {
+  lib,
   pkgs,
   ...
 }:
@@ -24,10 +24,14 @@ in
   programs.git = {
     enable = true;
     settings = {
-      user = {
-        name = "Riley Tuttle";
-        email = "rileytuttle@gmail.com";
-      };
+      # No user.email here on purpose -- see the header. The personal hosts
+      # get a global one from home/default.nix; rt-dellpromax-24 is a work
+      # machine and deliberately has none, so git refuses to commit until the
+      # repo at hand has been given an identity with
+      #   git config user.email <address>
+      # That refusal is the feature: it is a prompt, not a papercut, and it
+      # is far cheaper than rewriting authorship after the fact.
+      user.name = "Riley Tuttle";
       diff = {
         algorithm = "histogram";
         colorMoved = "plain";
@@ -74,7 +78,10 @@ in
     shellAliases = {
       gst = "git status";
       calc = "python3 -i -c \"from math import *; import numpy as np\"";
-      rebuild = "sudo nixos-rebuild switch --flake $HOME/nixos#$(hostname)";
+      # mkDefault because this one is NixOS-only: a standalone home-manager
+      # host has no nixos-rebuild and overrides it with its own switch
+      # command. A plain second definition of the same key would conflict.
+      rebuild = lib.mkDefault "sudo nixos-rebuild switch --flake $HOME/nixos#$(hostname)";
       update = "nix flake update --flake $HOME/nixos";
     };
 

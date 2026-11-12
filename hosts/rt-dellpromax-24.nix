@@ -1,4 +1,4 @@
-{ pkgs, inputs, ... }:
+{ lib, pkgs, inputs, ... }:
 let
   # Same mesa wrapper DMS runs under (see home/niri-generic-linux.nix):
   # OpenSCAD's Qt/OpenGL preview links nix's libEGL and can't see Ubuntu's
@@ -18,7 +18,6 @@ in
   home.homeDirectory = "/home/rileytuttle";
   home.packages = with pkgs; [
     chromium
-    glow
     openscad
 
     # Brings fzf, ripgrep, file, kak-lsp and the language servers on kak's
@@ -26,9 +25,31 @@ in
     kakoune
   ];
 
-  # Same kakrc as home/core.nix. Its splits use termcmd = `terminal`, which
-  # home/niri.nix provides here via home/terminal.nix.
-  home.file.".config/kak/kakrc".source = ../dotfiles/kakrc;
+  # kakrc and .tmux.conf come from home/core.nix, as does kak's `glow` -- all
+  # three used to be spelled out here because this host did not import that
+  # file yet. (kakrc's splits use termcmd = `terminal`, which home/niri.nix
+  # provides here via home/terminal.nix.) Note core.nix also puts nix's tmux
+  # on PATH ahead of Ubuntu's: after the first switch, `tmux kill-server`
+  # once so a new client is not left talking to the old apt server.
+
+  # Standalone home-manager, so core.nix's NixOS `rebuild` alias (which shells
+  # out to nixos-rebuild) is wrong here. It is mkDefault there; this wins.
+  programs.bash.shellAliases.rebuild =
+    "home-manager switch --flake $HOME/nixos#rt-dellpromax-24";
+
+  # home-manager owns ~/.bashrc from here on, which drops the handful of
+  # things Ubuntu's stock one provided. These are the ones worth keeping;
+  # everything else in it was interactive-shell boilerplate home-manager
+  # already covers.
+  programs.bash.initExtra = lib.mkAfter ''
+    if [ -x /usr/bin/dircolors ]; then
+      eval "$(dircolors -b)"
+      alias ls='ls --color=auto'
+      alias grep='grep --color=auto'
+    fi
+    alias ll='ls -alF'
+    alias la='ls -A'
+  '';
 
   # The wrapper carries no .desktop file, so give fuzzel something to find.
   xdg.desktopEntries.openscad = {

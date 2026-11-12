@@ -13,9 +13,11 @@
 # carry one (it uses whatever balena is on PATH, so nobody installs a second
 # ~630MB copy), which means supplying it is this module's job.
 #
-# The shell glue goes in ~/.bash_aliases rather than programs.bash.initExtra
-# because rt-dellpromax-24's ~/.bashrc is Ubuntu's own, not home-manager's,
-# and Ubuntu's stock .bashrc already sources ~/.bash_aliases.
+# The shell glue used to go in ~/.bash_aliases, because this host's ~/.bashrc
+# was Ubuntu's own and Ubuntu's stock one sources that file. Since the host
+# imports home/core.nix, home-manager owns ~/.bashrc -- and it does *not*
+# source ~/.bash_aliases, so that placement had become a silent no-op. Back
+# to initExtra, which is where it belongs now.
 { pkgs, inputs, ... }:
 let
   balena-plus = inputs.balena-plus.packages.${pkgs.stdenv.hostPlatform.system}.balena-plus;
@@ -26,7 +28,7 @@ in
   # Emits the `balena` alias plus both completion sources -- the wrapper's own
   # and balena-cli's oclif-generated one, which it generates on first run and
   # caches. Same line the standalone installer tells outside users to add.
-  home.file.".bash_aliases".text = ''
+  programs.bash.initExtra = ''
     eval "$(${balena-plus}/bin/balena-plus shell-init bash)"
   '';
 }

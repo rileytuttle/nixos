@@ -290,6 +290,12 @@
       extraSpecialArgs = { inherit inputs; };
       modules = [
         ./hosts/rt-dellpromax-24.nix
+        # The same portable user environment fw12 and elitedesk get through
+        # home/default.nix -- git, bash, the fzf git functions, tmux.conf,
+        # the CLI tools. core.nix carries no NixOS dependency and no
+        # identity, so a standalone home-manager host can take it directly;
+        # hosts/rt-dellpromax-24.nix supplies the host-specific half.
+        ./home/core.nix
         ./home/niri.nix
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix

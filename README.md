@@ -47,8 +47,8 @@ The configuration is organized as follows:
 │   ├── tmux.conf          # tmux config
 │   └── kanataconfig.kbd   # Kanata layout, shared by both hosts (no defcfg)
 └── home/                  # Home manager configurations
-    ├── default.nix        # Personal-machine profile: identity + the layers below
-    ├── core.nix           # Portable user env (shell, git, CLI). Must not assume NixOS
+    ├── default.nix        # Personal-machine profile: identity (incl. git email) + layers
+    ├── core.nix           # Portable user env (shell, git, CLI). No NixOS, no identity
     ├── apps-personal.nix  # GUI applications for personal machines
     ├── git-scripts.sh     # Shell functions (gb/gbd/gco), sourced by store path
     ├── auto-completes.sh  # Bash completions, sourced by store path
@@ -144,8 +144,8 @@ home-manager switch --flake .#rt-dellpromax-24
 nix run home-manager/master -- switch --flake .#rt-dellpromax-24
 ```
 
-It reuses `home/niri.nix` and `home/dank-material-shell.nix` from fw12. The system
-layer fw12 gets from `modules/niri.nix` has no equivalent here, so:
+It reuses `home/core.nix`, `home/niri.nix` and `home/dank-material-shell.nix` from
+fw12. The system layer fw12 gets from `modules/niri.nix` has no equivalent here, so:
 
 - **niri itself is built from source**, outside nix, and installed into
   `/usr/local`. It therefore links Ubuntu's own mesa/driver stack and needs no
@@ -170,6 +170,37 @@ layer fw12 gets from `modules/niri.nix` has no equivalent here, so:
 - **`home/kanata-generic-linux.nix`** is the stand-in for `modules/kanata.nix`.
   Same shared layout, run as a systemd **user** service. Needs one root-level
   setup step — see *Kanata* below.
+- **home-manager owns `~/.bashrc`, `~/.profile` and `~/.tmux.conf`** here, because
+  the host imports `home/core.nix`. Activation *fails* with "Existing file … is in
+  the way" rather than clobbering Ubuntu's — move them aside before the first
+  switch:
+
+  ```bash
+  for f in ~/.bashrc ~/.profile ~/.tmux.conf; do
+    if [ -e "$f" ] || [ -L "$f" ]; then mv -v "$f" "$f.pre-hm"; fi
+  done
+  ```
+
+  `ll`/`la` and the `dircolors` setup are carried over in
+  `hosts/rt-dellpromax-24.nix`; the rest of Ubuntu's stock `.bashrc` was
+  boilerplate home-manager already covers. `rebuild` is overridden there too,
+  since core.nix's is `nixos-rebuild`.
+
+### Git identity
+
+`home/core.nix` sets every git option **except `user.email`**, which is left to
+the importing host or profile — `home/default.nix` gives the personal machines
+`rileytuttle@gmail.com`, and rt-dellpromax-24 deliberately gets none. On the work
+machine git therefore refuses to commit until the repo has been given one:
+
+```bash
+git config user.email riley.tuttle@havocai.com
+```
+
+That refusal is the point — it's cheaper than rewriting authorship after a few
+commits have gone out under the wrong address. Note `programs.git` is written to
+`~/.config/git/config`, and git reads `~/.gitconfig` at *higher* precedence, so a
+leftover `~/.gitconfig` will silently shadow all of it.
 
 ### Kanata
 
