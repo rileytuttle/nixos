@@ -299,6 +299,10 @@
         ./home/niri.nix
         ./home/dank-material-shell.nix
         ./home/niri-generic-linux.nix
+        # Deskflow as a *server* under niri, which needs an InputCapture
+        # portal backend niri does not provide. Separate from the niri module
+        # so it can be dropped on its own, same as the fw12 side.
+        ./home/deskflow-generic-linux.nix
         # Same shared layout fw12 gets from modules/kanata.nix, driven by a
         # systemd *user* service instead of a NixOS one. The uinput/group
         # setup nix cannot do here is in `kanata-host-setup`, which that

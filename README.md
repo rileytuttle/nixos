@@ -42,8 +42,11 @@ The configuration is organized as follows:
 │   ├── scripts.nix        # shic, sync-ipod, git-clear, comic2cbz
 │   ├── scripts/           # the sources those are built from
 │   ├── claude-container/  # Claude Code in a container with its own nix store
-│   └── niri-kdeconnect-portal/  # RemoteDesktop portal backend niri lacks
-│                          #   (deskflow's input path; see modules/deskflow.nix)
+│   ├── niri-kdeconnect-portal/  # RemoteDesktop portal backend niri lacks
+│   │                      #   (deskflow CLIENT input path; modules/deskflow.nix)
+│   └── niri-input-portal/ # InputCapture portal backend niri lacks
+│                          #   (deskflow SERVER input path;
+│                          #    home/deskflow-generic-linux.nix)
 ├── dotfiles/              # Plain config files delivered by home-manager
 │   ├── kakrc              # Kakoune config
 │   ├── tmux.conf          # tmux config
@@ -58,6 +61,7 @@ The configuration is organized as follows:
     ├── niri-config.kdl    # The niri config itself, shared between hosts
     ├── niri-generic-linux.nix     # Non-NixOS session glue (rt-dellpromax-24)
     ├── kanata-generic-linux.nix   # Non-NixOS kanata: user service + host setup script
+    ├── deskflow-generic-linux.nix # Non-NixOS deskflow: InputCapture portal backend
     ├── balena.nix         # balena-cli + the balena-plus flake (rt-dellpromax-24)
     ├── claude-code.nix    # claude-code on the host
     ├── claude-container.nix  # home-manager side of pkgs/claude-container
@@ -172,6 +176,59 @@ fw12. The system layer fw12 gets from `modules/niri.nix` has no equivalent here,
 - **`home/kanata-generic-linux.nix`** is the stand-in for `modules/kanata.nix`.
   Same shared layout, run as a systemd **user** service. Needs one root-level
   setup step — see *Kanata* below.
+- **`home/deskflow-generic-linux.nix`** is the counterpart to
+  `modules/deskflow.nix`, not a port of it. This host is the deskflow
+  **server** (`coreMode=2`) and fw12 is the client, and the two ends go
+  through *different* portals — the server captures input through
+  `InputCapture`, the client injects it through `RemoteDesktop`. niri
+  implements neither, so each host needs its own backend and they are not
+  interchangeable. The failure here is
+
+  ```
+  ERROR: failed to initialize input capture session, quitting: CreateSession failed
+  ```
+
+  — "input capture", not "remote desktop". Deskflow itself stays the Flatpak
+  (it holds the TLS identity and the paired fingerprints); nix supplies only
+  `pkgs/niri-input-portal`, the systemd user unit, and
+  `~/.config/xdg-desktop-portal/niri-portals.conf`.
+
+  **Needs one root-level step — run `deskflow-portal-host-setup` once.**
+  xdg-desktop-portal reads backend `.portal` descriptors from a single
+  hardcoded `/usr/share/xdg-desktop-portal/portals`; it does *not* walk
+  `XDG_DATA_DIRS` for them (that lookup is only for `portals.conf`), and
+  still did not as of 1.20.0. So a backend installed into the nix profile is
+  invisible, and because xdp only publishes a frontend it has found an impl
+  for, the symptom is the interface being absent entirely rather than
+  degraded:
+
+  ```
+  Failed to get property SupportedCapabilities on interface
+  org.freedesktop.portal.InputCapture: No such interface …
+  ```
+
+  The script copies the descriptor into place (`--check` reports status).
+  It is three static lines with no store path in them, so it does not go
+  stale when the package is rebuilt — this runs once, not per switch.
+
+  **Add the escape binding
+  to `~/.config/niri/local.kdl`** — while a capture is active the keyboard is
+  grabbed and the pointer is locked, so only a niri binding can break out:
+
+  ```kdl
+  binds {
+      Mod+Shift+Escape allow-inhibiting=false {
+          spawn "/home/rileytuttle/.nix-profile/bin/niri-input-portal" "--release";
+      }
+  }
+  ```
+
+  (Absolute, not `~/…` — niri's `spawn` execs directly with no shell.)
+
+  Shared clipboard will not work until this host moves past Ubuntu 24.04 —
+  noble ships xdg-desktop-portal 1.18.4 and the clipboard-over-InputCapture
+  path needs 1.21.1+. Capture itself negotiates the older interface version
+  and is unaffected.
 - **home-manager owns `~/.bashrc`, `~/.profile` and `~/.tmux.conf`** here, because
   the host imports `home/core.nix`. Activation *fails* with "Existing file … is in
   the way" rather than clobbering Ubuntu's — move them aside before the first
@@ -391,7 +448,10 @@ The configuration includes several custom modules:
 - `deskflow.nix`: DeskFlow keyboard/mouse sharing. Under niri this also pulls in
   pkgs/niri-kdeconnect-portal, because a deskflow *client* injects input through
   the RemoteDesktop portal and niri ships no backend for it -- without the
-  bridge the client dies on `CreateSession failed` and never connects
+  bridge the client dies on `CreateSession failed` and never connects.
+  A deskflow *server* under niri needs the other portal entirely
+  (`InputCapture`) and so a different backend -- see
+  `home/deskflow-generic-linux.nix`, which is how rt-dellpromax-24 gets it
 - `local-nginx.nix`: Local nginx web server
 - `android-tools.nix`: Android development tools
 
