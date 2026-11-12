@@ -27,18 +27,21 @@
 let
   # Which evdev devices to grab.
   #
-  # Empty list = let kanata detect every keyboard-ish device and grab them
-  # all. That is the right default here and it is why nothing in this repo
-  # names a Dell device path: it works for the internal keyboard and for
-  # whatever USB board is plugged in at the desk, with no per-dock fiddling.
+  # Pinned to the builtin keyboard only. This used to be an empty list, which
+  # tells kanata to detect every keyboard-ish device and grab them all --
+  # including whatever USB or Bluetooth board is in use at the desk (the ZMK
+  # order66, a Logitech receiver). A board that already carries its own
+  # layout in firmware gets this one stacked on top of it, and any grabbed
+  # external board then behaves differently depending on which machine it is
+  # plugged into. The builtin keyboard is the only one that wants kanata.
   #
-  # To pin specific devices instead, run `kanata --list` (kanata is on PATH
-  # from home.packages below) and paste the paths in here, preferring the
-  # stable /dev/input/by-id/... or by-path/... names over event numbers --
-  # event numbering is assignment order and changes between boots.
-  #
-  #   devices = [ "/dev/input/by-path/platform-i8042-serio-0-event-kbd" ];
-  devices = [ ];
+  # Same path fw12 pins in modules/kanata.nix, and for the same reason: both
+  # laptops expose their builtin keyboard on the i8042 PS/2 port -- "AT
+  # Translated Set 2 keyboard" in `kanata --list` (kanata is on PATH from
+  # home.packages below). by-path and not an event number, because event
+  # numbering is assignment order and changes between boots and between
+  # docked and undocked.
+  devices = [ "/dev/input/by-path/platform-i8042-serio-0-event-kbd" ];
 
   mkDevices =
     devs:
@@ -48,10 +51,12 @@ let
   # The same generation the nixpkgs NixOS module does, reimplemented because
   # that module is NixOS-only: host defcfg on top, shared layout underneath.
   #
-  # linux-continue-if-no-devs-found matters more here than on fw12. With an
-  # empty `devices` kanata is detecting at runtime, and on a laptop that gets
-  # docked and undocked the set of keyboards changes; without this, a start
-  # that happens to find nothing is a hard failure.
+  # linux-continue-if-no-devs-found stays on now that `devices` is pinned,
+  # but it means something different than it did under auto-detection: the
+  # only way the list comes up empty is the builtin keyboard node being
+  # missing, and kanata then idles instead of failing. The cost is that a
+  # wrong path here is silent -- it shows up in `journalctl --user -u kanata`
+  # rather than as a failed unit.
   kanataConfig = pkgs.writeTextFile {
     name = "kanata-config.kbd";
     text = ''
