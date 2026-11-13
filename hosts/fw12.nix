@@ -25,7 +25,7 @@
     ../modules/docker.nix
     ../modules/kicad.nix
     ../modules/tdarr-node.nix
-    inputs.bt-kb-emulator.nixosModules.default
+    inputs.bluetooth-keyboard-emulator.nixosModules.default
   ];
 
   networking.hostName = "fw12"; # whatever you want

@@ -46,11 +46,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # fw12 only -- see modules/bt-kb-emulator/. Its own flake, still living
-    # in this repo (path: input) so it can move to its own repo later with
-    # just a URL change here, the way balena-plus already did.
-    bt-kb-emulator = {
-      url = "path:./modules/bt-kb-emulator";
+    # fw12 (NixOS module) and rt-dellpromax-24 (home-manager module). Used to
+    # live here as modules/bt-kb-emulator, a path: flake waiting to be split
+    # out; it is its own repo now, the way balena-plus already was. The
+    # programs and the systemd unit are still called bt-kb-*.
+    # `nix flake update bluetooth-keyboard-emulator` after changing it there.
+    bluetooth-keyboard-emulator = {
+      url = "github:rileytuttle/bluetooth-keyboard-emulator";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -346,20 +348,21 @@
           # write into ~/.bashrc itself.
           ./home/oakctl-generic-linux.nix
           # Bluetooth keyboard *peripheral*: pair the phone to this machine and
-          # type on it from this keyboard. home.nix is the user-facing half only
-          # -- the server wants real root for its L2CAP sockets and bluetoothd
-          # wants --noplugin=input, neither of which home-manager may write --
-          # so run `bt-kb-setup` once after the first switch, and again after an
-          # update that changes the package (`bt-kb-setup --status` says when the
-          # installed unit has drifted from the current build). fw12 is NixOS and
-          # imports modules/bt-kb-emulator/module.nix instead; bt-kb-setup
-          # refuses to run there, so the two routes cannot fight.
+          # type on it from this keyboard. The home-manager module is the
+          # user-facing half only -- the server wants real root for its L2CAP
+          # sockets and bluetoothd wants --noplugin=input, neither of which
+          # home-manager may write -- so run `bt-kb-setup` once after the first
+          # switch, and again after an update that changes the package
+          # (`bt-kb-setup --status` says when the installed unit has drifted
+          # from the current build). fw12 is NixOS and takes that flake's
+          # nixosModules.default instead; bt-kb-setup refuses to run there, so
+          # the two routes cannot fight.
           #
           # The cost, same as on fw12: with bluetoothd's input plugin disabled
           # this machine can no longer act as a Bluetooth HID *host*, i.e. no
           # external Bluetooth keyboard or mouse. Audio and the rest of BlueZ
           # are untouched.
-          ./modules/bt-kb-emulator/home.nix
+          inputs.bluetooth-keyboard-emulator.homeManagerModules.default
           ./home/claude-container.nix
         ];
       };

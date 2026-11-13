@@ -36,21 +36,25 @@
         "type": "github"
       }
     },
-    "bt-kb-emulator": {
+    "bluetooth-keyboard-emulator": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "path": "./modules/bt-kb-emulator",
-        "type": "path"
+        "lastModified": 1794587981,
+        "narHash": "sha256-JZfSAt4oa1ZvV6xqrjd1Ylr6Mmd4stibApHWHrAZ22w=",
+        "owner": "rileytuttle",
+        "repo": "bluetooth-keyboard-emulator",
+        "rev": "46baa7e6ca1a4357e518b46ad842f37273c2c4cd",
+        "type": "github"
       },
       "original": {
-        "path": "./modules/bt-kb-emulator",
-        "type": "path"
-      },
-      "parent": []
+        "owner": "rileytuttle",
+        "repo": "bluetooth-keyboard-emulator",
+        "type": "github"
+      }
     },
     "dank-qml-common": {
       "flake": false,
@@ -267,7 +271,7 @@
     "root": {
       "inputs": {
         "balena-plus": "balena-plus",
-        "bt-kb-emulator": "bt-kb-emulator",
+        "bluetooth-keyboard-emulator": "bluetooth-keyboard-emulator",
         "dms": "dms",
         "home-manager": "home-manager",
         "nix-colors": "nix-colors",

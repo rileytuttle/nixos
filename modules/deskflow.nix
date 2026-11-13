@@ -8,8 +8,9 @@
 
 let
   # Not an overlay: nothing else in the tree needs it, same as
-  # modules/bt-kb-emulator. Pinned against this pkgs.deskflow on purpose --
-  # see the comment on NKCF_DESKFLOW_EXECUTABLE in the package.
+  # home/deskflow-generic-linux.nix and its niri-input-portal. Pinned against
+  # this pkgs.deskflow on purpose -- see the comment on
+  # NKCF_DESKFLOW_EXECUTABLE in the package.
   niri-kdeconnect-portal = pkgs.callPackage ../pkgs/niri-kdeconnect-portal { };
 in
 {
