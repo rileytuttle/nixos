@@ -15,6 +15,16 @@ let
     exec ${nixGLBin} ${pkgs.openscad-unstable}/bin/openscad "$@"
   '';
 
+  # Escape hatch out of the container configured below: runs the real Claude
+  # Code binary directly on this host, no container/sandbox around it. Named
+  # away from `claude`/`claude-c` on purpose -- those stay pointed at the
+  # container so the sandboxed path remains the default, and this one is only
+  # reached for the rare case that genuinely needs host-level access (e.g.
+  # touching hardware the container can't see). Same wrapper fw12 carries.
+  claude-raw = pkgs.writeShellScriptBin "claude-raw" ''
+    exec ${pkgs.claude-code}/bin/claude "$@"
+  '';
+
   # Same kakoune + plugins the NixOS hosts get from modules/kakoune.nix.
   kakoune = import ../pkgs/kakoune.nix { inherit pkgs inputs; };
 in
@@ -24,6 +34,7 @@ in
   home.packages = with pkgs; [
     chromium
     openscad
+    claude-raw
 
     # Brings fzf, ripgrep, file, kak-lsp and the language servers on kak's
     # PATH; see pkgs/kakoune.nix.
