@@ -375,6 +375,10 @@
           # module puts on PATH -- run it once after the first switch.
           ./home/kanata-generic-linux.nix
           ./home/balena.nix
+          # Bambu Studio, nixGL-wrapped and defaulted to XWayland -- see the
+          # module header for both reasons. rt-dellpromax-24 only: it is unfree
+          # and so builds locally, and fw12 has no printer to talk to.
+          ./home/bambu-studio-generic-linux.nix
           # oakctl (Luxonis' OAK4/RVC4 CLI) from upstream's installer rather
           # than nixpkgs, which is several minor versions behind -- see the
           # module header. It supplies the `oakctl-install` entry point plus

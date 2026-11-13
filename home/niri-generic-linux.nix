@@ -55,6 +55,18 @@ in
     fuzzel # Mod+D
     wl-clipboard
 
+    # The other half of modules/niri.nix's systemPackages, and for the same
+    # reason spelled out there: niri only needs the binary on $PATH and then
+    # creates the X11 socket, exports $DISPLAY and spawns it on demand.
+    # Without it, X11-only clients -- bambu-studio, via
+    # home/bambu-studio-generic-linux.nix -- cannot init at all under niri.
+    #
+    # Reachable here because niri's $PATH comes from the environment.d file
+    # below, which puts ~/.nix-profile/bin on it. nixpkgs wraps the binary
+    # with nix's own Xwayland on PATH, so Ubuntu's /usr/bin/Xwayland is not
+    # involved and nothing outside nix has to be installed.
+    xwayland-satellite
+
     polkit_gnome # for the user service below
     jq # toggle-kakoune-notes.sh needs it (normally from home/default.nix)
   ];
