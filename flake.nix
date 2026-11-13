@@ -315,6 +315,21 @@
         # the ~/.local/bin PATH entry the installer is no longer allowed to
         # write into ~/.bashrc itself.
         ./home/oakctl-generic-linux.nix
+        # Bluetooth keyboard *peripheral*: pair the phone to this machine and
+        # type on it from this keyboard. home.nix is the user-facing half only
+        # -- the server wants real root for its L2CAP sockets and bluetoothd
+        # wants --noplugin=input, neither of which home-manager may write --
+        # so run `bt-kb-setup` once after the first switch, and again after an
+        # update that changes the package (`bt-kb-setup --status` says when the
+        # installed unit has drifted from the current build). fw12 is NixOS and
+        # imports modules/bt-kb-emulator/module.nix instead; bt-kb-setup
+        # refuses to run there, so the two routes cannot fight.
+        #
+        # The cost, same as on fw12: with bluetoothd's input plugin disabled
+        # this machine can no longer act as a Bluetooth HID *host*, i.e. no
+        # external Bluetooth keyboard or mouse. Audio and the rest of BlueZ
+        # are untouched.
+        ./modules/bt-kb-emulator/home.nix
         ./home/claude-container.nix
       ];
     };
