@@ -36,6 +36,22 @@
         "type": "github"
       }
     },
+    "bt-kb-emulator": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "./modules/bt-kb-emulator",
+        "type": "path"
+      },
+      "original": {
+        "path": "./modules/bt-kb-emulator",
+        "type": "path"
+      },
+      "parent": []
+    },
     "dank-qml-common": {
       "flake": false,
       "locked": {
@@ -251,6 +267,7 @@
     "root": {
       "inputs": {
         "balena-plus": "balena-plus",
+        "bt-kb-emulator": "bt-kb-emulator",
         "dms": "dms",
         "home-manager": "home-manager",
         "nix-colors": "nix-colors",

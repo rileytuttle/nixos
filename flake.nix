@@ -45,6 +45,14 @@
       url = "github:rileytuttle-havoc/balena-plus";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # fw12 only -- see modules/bt-kb-emulator/. Its own flake, still living
+    # in this repo (path: input) so it can move to its own repo later with
+    # just a URL change here, the way balena-plus already did.
+    bt-kb-emulator = {
+      url = "path:./modules/bt-kb-emulator";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
