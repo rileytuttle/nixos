@@ -155,6 +155,29 @@
     "dialout"
   ];
 
+  # Second account on this laptop: Courtney, a plain Plasma desktop user.
+  # Declared here rather than in modules/common.nix because that file is
+  # shared with elitedesk, and this account only belongs on the laptop.
+  #
+  # No "wheel": this is not an admin account, so no sudo and no
+  # nixos-rebuild. The other groups are what a desktop session actually
+  # needs -- networkmanager to pick a WiFi network without a polkit prompt
+  # for a password they do not have, video/audio for the seat.
+  #
+  # No password here on purpose. Passwords on this host are imperative
+  # (mutableUsers stays at its default of true and nothing in this repo
+  # sets hashedPassword), which keeps hashes out of a public git repo --
+  # set it once with `sudo passwd courtneycooke` after the first switch.
+  users.users.courtneycooke = {
+    isNormalUser = true;
+    description = "Courtney Cooke";
+    extraGroups = [
+      "networkmanager"
+      "video"
+      "audio"
+    ];
+  };
+
   # Laptop-only packages
   environment.systemPackages = with pkgs; [
     powertop

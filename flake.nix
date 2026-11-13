@@ -256,6 +256,15 @@
                   ./home/claude-container.nix
                 ];
               };
+
+              # The laptop's second account -- see home/courtneycooke.nix and
+              # the users.users.courtneycooke block in hosts/fw12.nix. It gets
+              # none of the four files above: Plasma is the session (the
+              # default from modules/common.nix), so niri/DMS aren't in play,
+              # and default.nix is Riley's identity by definition.
+              home-manager.users.courtneycooke = {
+                imports = [ ./home/courtneycooke.nix ];
+              };
               home-manager.extraSpecialArgs = { inherit inputs; };
             }
           ];
