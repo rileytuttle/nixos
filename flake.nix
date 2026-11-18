@@ -209,6 +209,7 @@
       checks.${system} = {
         fw12 = self.nixosConfigurations.fw12.config.system.build.toplevel;
         elitedesk = self.nixosConfigurations.elitedesk.config.system.build.toplevel;
+        fw12-rack-headless = self.nixosConfigurations.fw12-rack-headless.config.system.build.toplevel;
         rt-dellpromax-24 = self.homeConfigurations.rt-dellpromax-24.activationPackage;
       };
 
@@ -282,6 +283,33 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.users.rileytuttle = import ./home/default.nix;
+              home-manager.extraSpecialArgs = { inherit inputs; };
+            }
+          ];
+        };
+
+        # fw12's original 13th-gen-Intel mainboard, pulled when fw12 moved to
+        # the Core Series 3 board, now reused headless in a server rack. See
+        # hosts/fw12-rack-headless.nix. framework-12-13th-gen-intel is the
+        # flake-registered module for this generation (unlike the Core
+        # Series 3 board, nixos-hardware already has one for it, so no
+        # path-import workaround needed here).
+        fw12-rack-headless = nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          specialArgs = { inherit inputs; };
+          modules = [
+            nixos-hardware.nixosModules."framework-12-13th-gen-intel"
+            ./hosts/fw12-rack-headless.nix
+            ./modules/common.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              # The normal personal home-manager profile, same as elitedesk --
+              # no attempt yet to strip out the GUI-only parts (apps-personal.nix)
+              # that a headless rack server will never use. Revisit once this
+              # host is actually running.
               home-manager.users.rileytuttle = import ./home/default.nix;
               home-manager.extraSpecialArgs = { inherit inputs; };
             }
