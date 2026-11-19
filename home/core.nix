@@ -43,8 +43,40 @@ in
       help.autocorrect = "prompt";
       commit.verbose = true;
       core.editor = "kak";
+      # `git dft <args>` -- structural diff for one invocation. See the
+      # difftastic note below for why it is an alias and not diff.external.
+      alias.dft = "-c diff.external=difft diff";
     };
   };
+
+  # Diff viewers. Both are terminal tools -- no GUI, no X/Wayland dependency,
+  # so they behave the same over ssh on every host that imports this file.
+  #
+  # delta is a *pager*: git still produces the diff and delta repaints it on
+  # the way to the terminal, so `git diff`, `show`, `log -p` and `add -p` all
+  # gain syntax highlighting with no change in how they are invoked.
+  programs.delta = {
+    enable = true;
+    # Defaults to false in the pinned home-manager. Without it delta is only a
+    # binary on PATH that git never calls.
+    enableGitIntegration = true;
+    options = {
+      navigate = true; # n / N jump between files inside the pager
+      line-numbers = true;
+      side-by-side = true;
+      hyperlinks = true;
+    };
+  };
+
+  # difftastic compares syntax trees rather than lines, so a reindent or a
+  # brace-wrap shows up as no change at all -- worth reaching for on a
+  # refactor, slow and unhelpful on prose or very large files.
+  #
+  # Deliberately left without `git.enable`: that would set diff.external
+  # globally, and home-manager asserts that only one of
+  # delta/difftastic/diff-so-fancy may own the git integration. The `dft`
+  # alias above opts in per command instead, leaving delta the default.
+  programs.difftastic.enable = true;
 
   # CLI tools. GUI applications live in home/apps-personal.nix.
   home.packages = [
