@@ -1,0 +1,4 @@
+# Per-machine Claude Code state. .mcp.json (the server definitions) is
+# tracked on purpose; .claude/settings.local.json is just this machine's
+# approval of them, so it stays local.
+.claude/
