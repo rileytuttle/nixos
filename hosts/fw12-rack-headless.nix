@@ -10,6 +10,7 @@
     ./fw12-rack-headless-hardware-configuration.nix
     ../modules/ssh.nix
     ../modules/tailscale.nix
+    ../modules/docker.nix
   ];
 
   networking.hostName = "fw12-rack-headless";
@@ -32,4 +33,29 @@
   # a rack chassis on wall power -- none of fw12.nix's laptop power
   # management (TLP/thermald/sleep-hibernate/bluetooth/libinput/kdeconnect)
   # applies here.
+
+  # Claude Code in a container, from home/claude-container.nix. Enabled here
+  # rather than in the module because it needs a container runtime, and
+  # ../modules/docker.nix (imported above) is what provides one on this host.
+  #
+  # runtime is left to auto-detect: docker is what is installed today, and the
+  # tool handles a rootful daemon by dropping to this uid inside.
+  home-manager.users.rileytuttle.programs.claude-container = {
+    enable = true;
+    aliases = [
+      "claude-c"
+      "claude"
+    ];
+  };
+
+  # Escape hatch out of the container above: runs the real Claude Code
+  # binary directly on this host, no container/sandbox around it. Named
+  # away from `claude`/`claude-c` on purpose -- those stay pointed at the
+  # container so the sandboxed path remains the default, and this one is
+  # only reached for the rare case that genuinely needs host-level access.
+  home-manager.users.rileytuttle.home.packages = [
+    (pkgs.writeShellScriptBin "claude-raw" ''
+      exec ${pkgs.claude-code}/bin/claude "$@"
+    '')
+  ];
 }
