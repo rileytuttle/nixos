@@ -309,8 +309,14 @@
               # The normal personal home-manager profile, same as elitedesk --
               # no attempt yet to strip out the GUI-only parts (apps-personal.nix)
               # that a headless rack server will never use. Revisit once this
-              # host is actually running.
-              home-manager.users.rileytuttle = import ./home/default.nix;
+              # host is actually running. claude-container is on top, same as
+              # fw12, since hosts/fw12-rack-headless.nix configures it.
+              home-manager.users.rileytuttle = {
+                imports = [
+                  ./home/default.nix
+                  ./home/claude-container.nix
+                ];
+              };
               home-manager.extraSpecialArgs = { inherit inputs; };
             }
           ];
