@@ -39,7 +39,8 @@
   # ../modules/docker.nix (imported above) is what provides one on this host.
   #
   # runtime is left to auto-detect: docker is what is installed today, and the
-  # tool handles a rootful daemon by dropping to this uid inside.
+  # tool handles a rootful daemon by dropping to this uid inside. If podman
+  # ever lands here it gets picked up first, and then nothing has to chown.
   home-manager.users.rileytuttle.programs.claude-container = {
     enable = true;
     aliases = [
@@ -52,7 +53,8 @@
   # binary directly on this host, no container/sandbox around it. Named
   # away from `claude`/`claude-c` on purpose -- those stay pointed at the
   # container so the sandboxed path remains the default, and this one is
-  # only reached for the rare case that genuinely needs host-level access.
+  # only reached for the rare case that genuinely needs host-level access
+  # (e.g. a real nixos-rebuild, or touching hardware the container can't see).
   home-manager.users.rileytuttle.home.packages = [
     (pkgs.writeShellScriptBin "claude-raw" ''
       exec ${pkgs.claude-code}/bin/claude "$@"
