@@ -28,7 +28,6 @@
     # (nixGL for Ubuntu's GL driver, plus an xdg.desktopEntries block). No
     # wrapper needed on NixOS, and the nightly ships its own .desktop.
     openscad-unstable
-    prusa-slicer
     rpi-imager
     signal-desktop
     slack
